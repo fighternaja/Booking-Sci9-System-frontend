@@ -11,7 +11,6 @@ export default function AdminNavbar() {
   const navigation = [
     { name: 'ภาพรวม', href: '/admin', icon: '📊' },
     { name: 'จัดการห้อง', href: '/admin/rooms', icon: '🏢' },
-    { name: 'อนุมัติการจอง', href: '/admin/bookings', icon: '✅' },
     { name: 'ตารางห้อง', href: '/admin/schedule', icon: '📅' },
     { name: 'รายงาน', href: '/admin/reports', icon: '📈' }
   ]

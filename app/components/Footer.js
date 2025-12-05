@@ -32,7 +32,7 @@ export default function Footer() {
               <ul className="space-y-3">
                 <li className="text-blue-100 hover:text-white transition-colors cursor-pointer flex items-center">
                   <span className="mr-2">📧 </span>
-                  www.computer.cmru.ac.th
+                  <a href="https://www.computer.cmru.ac.th" target="_blank" rel="noopener noreferrer">https://www.computer.cmru.ac.th</a>
                 </li>
                 <li className="text-blue-100 hover:text-white transition-colors cursor-pointer flex items-center">
                   <span className="mr-2">📱</span>

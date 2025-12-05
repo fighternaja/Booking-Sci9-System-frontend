@@ -31,12 +31,12 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email, password }),
       })
 
-      // Check if response is ok
+      // Check if response is ok ตรวจสอบการตอบสนองจาก server
       if (!response.ok) {
         return { success: false, message: `HTTP Error: ${response.status}` }
       }
 
-      // Check if response is JSON
+      // Check if response is JSON ตรวจสอบการตอบสนองจาก server
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text()
@@ -72,12 +72,12 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ name, email, password, password_confirmation }),
       })
 
-      // Check if response is ok
+      // Check if response is ok ตรวจสอบการตอบสนองจาก server
       if (!response.ok) {
         return { success: false, message: `HTTP Error: ${response.status}` }
       }
 
-      // Check if response is JSON
+      // Check if response is JSON ตรวจสอบการตอบสนองจาก server
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text()
@@ -113,6 +113,69 @@ export function AuthProvider({ children }) {
     return user && user.role === 'admin'
   }
 
+  const getProfile = async () => {
+    try {
+      const authToken = localStorage.getItem('token')
+      const response = await fetch('http://127.0.0.1:8000/api/user', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      })
+      
+      if (!response.ok) {
+        return null
+      }
+      
+      const data = await response.json()
+      setUser(data)
+      localStorage.setItem('user', JSON.stringify(data))
+      return data
+    } catch (error) {
+      console.error('Get profile error:', error)
+      return null
+    }
+  }
+
+  //อัปเดตโปรไฟล์
+  const updateProfile = async (profileData) => {
+    try {
+      const authToken = localStorage.getItem('token')
+      
+      // สร้าง FormData สำหรับรองรับการอัปโหลดไฟล์
+      const formData = new FormData()
+      
+      if (profileData.name) formData.append('name', profileData.name)
+      if (profileData.email) formData.append('email', profileData.email)
+      if (profileData.password) formData.append('password', profileData.password)
+      if (profileData.profile_picture) formData.append('profile_picture', profileData.profile_picture)
+      
+      const response = await fetch('http://127.0.0.1:8000/api/user/update', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: formData,
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setUser(data.user)
+        localStorage.setItem('user', JSON.stringify(data.user))
+        return { success: true, message: data.message || 'อัปเดตโปรไฟล์สำเร็จ' }
+      } else {
+        return { success: false, message: data.message || 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์' }
+      }
+    } catch (error) {
+      console.error('Update profile error:', error)
+      return { success: false, message: 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์: ' + error.message }
+    }
+  }
+
   const value = {
     user,
     token,
@@ -120,7 +183,9 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
-    isAdmin
+    isAdmin,
+    getProfile,
+    updateProfile
   }
 
   return (

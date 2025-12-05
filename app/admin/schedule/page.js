@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { useAuth } from '../../contexts/AuthContext'
-import { convertDDMMYYYYToISO } from '../../utils/dateUtils'
 
 export default function AdminSchedulePage() {
   const [rooms, setRooms] = useState([])
@@ -12,19 +12,21 @@ export default function AdminSchedulePage() {
   const [selectedRoom, setSelectedRoom] = useState('')
   const [academicYear, setAcademicYear] = useState('2568')
   const [selectedSemester, setSelectedSemester] = useState(1)
-  const [currentWeek, setCurrentWeek] = useState(new Date())
   const [apiError, setApiError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [roomsLoading, setRoomsLoading] = useState(true)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importedData, setImportedData] = useState([])
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError] = useState('')
   const dateInputRef = useRef(null)
+  const fileInputRef = useRef(null)
   const { token } = useAuth()
-
 
   useEffect(() => {
     fetchData()
   }, [selectedDate])
 
-  // Fetch rooms when component mounts
   useEffect(() => {
     fetchRooms()
   }, [])
@@ -53,7 +55,7 @@ export default function AdminSchedulePage() {
         }
       }
       
-      // If API fails, use mock data
+      // Mock data fallback
       const mockRooms = [
         { id: 1, name: 'Sci9 201(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 1' },
         { id: 2, name: 'Sci9 203(HardWare)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 3' },
@@ -82,83 +84,160 @@ export default function AdminSchedulePage() {
   }
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      // Mock rooms data for fallback (based on RoomSeeder)
-      const mockRooms = [
-        { id: 1, name: 'Sci9 201(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 1' },
-        { id: 2, name: 'Sci9 203(HardWare)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 3' },
-        { id: 3, name: 'Sci9 204(COM)', description: '', capacity: 10, location: 'ชั้น 2 ห้อง 4' },
-        { id: 4, name: 'Sci9 205(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 24, location: 'ชั้น 4 อาคาร B' },
-        { id: 5, name: 'Sci9 301(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 49, location: 'ชั้น 3 ห้อง 1' },
-        { id: 6, name: 'Sci9 302(SmB)', description: 'ห้องเรียน', capacity: 50, location: 'ชั้น 3 ห้อง 2' },
-        { id: 7, name: 'Sci9 303(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 48, location: 'ชั้น 3 ห้อง 3' },
-        { id: 8, name: 'Sci9 304(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 40, location: 'ชั้น 3 ห้อง 4' },
-        { id: 9, name: 'Sci9 306(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 3 ห้อง 5' },
-        { id: 10, name: 'Sci9 402)', description: 'ห้องประชุม', capacity: 40, location: 'ชั้น 4 ห้อง 2' },
-        { id: 11, name: 'Sci9 403(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 24, location: 'ชั้น 4 ห้อง 3' },
-        { id: 12, name: 'Sci9 405', description: 'ห้องเรียน', capacity: 48, location: 'ชั้น 4 ห้อง 5' }
-      ]
-
-      // Try to fetch rooms from API
-      try {
-        const roomsResponse = await fetch('http://127.0.0.1:8000/api/rooms', {
-          headers: {
-            'Accept': 'application/json'
-          }
-        })
-        
-        if (roomsResponse.ok) {
-          const contentType = roomsResponse.headers.get('content-type')
-          if (contentType && contentType.includes('application/json')) {
-            const roomsData = await roomsResponse.json()
-            if (roomsData.success) {
-              setRooms(roomsData.data)
-            } else {
-              setRooms(mockRooms)
-            }
-          } else {
-            console.warn('API returned non-JSON response, using mock data')
-            setRooms(mockRooms)
-          }
-        } else {
-          console.warn('API request failed, using mock data')
-          setRooms(mockRooms)
+      const response = await fetch('http://127.0.0.1:8000/api/bookings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (apiError) {
-        console.warn('API connection failed, using mock data:', apiError.message)
-        setRooms(mockRooms)
-        setApiError(true)
-        setErrorMessage('ไม่สามารถเชื่อมต่อกับ API ได้ กำลังใช้ข้อมูลจำลอง')
-      }
+      })
 
-      // Try to fetch bookings for selected date
-      if (token) {
-        try {
-          const bookingsResponse = await fetch(`http://127.0.0.1:8000/api/bookings?date=${selectedDate}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/json'
-            }
-          })
-          
-          if (bookingsResponse.ok) {
-            const contentType = bookingsResponse.headers.get('content-type')
-            if (contentType && contentType.includes('application/json')) {
-              const bookingsData = await bookingsResponse.json()
-              if (bookingsData.success) {
-                setBookings(bookingsData.data)
-              }
-            }
-          }
-        } catch (bookingError) {
-          console.warn('Failed to fetch bookings:', bookingError.message)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setBookings(data.data)
+        } else {
           setBookings([])
         }
+      } else {
+        // Mock data for development
+        setBookings([])
       }
     } catch (error) {
       console.error('Error in fetchData:', error)
+      setBookings([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Excel Import Functions
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      setImportError('กรุณาเลือกไฟล์ Excel (.xlsx หรือ .xls)')
+      return
+    }
+
+    setImportLoading(true)
+    setImportError('')
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+
+        const processedData = processExcelData(jsonData)
+        setImportedData(processedData)
+        setShowImportModal(true)
+      } catch (error) {
+        console.error('Error processing Excel file:', error)
+        setImportError('เกิดข้อผิดพลาดในการประมวลผลไฟล์ Excel')
+      } finally {
+        setImportLoading(false)
+      }
+    }
+
+    reader.readAsArrayBuffer(file)
+  }
+
+  const processExcelData = (data) => {
+    if (data.length < 2) {
+      setImportError('ไฟล์ Excel ต้องมีข้อมูลอย่างน้อย 2 แถว (หัวข้อและข้อมูล)')
+      return []
+    }
+
+    const headers = data[0]
+    const rows = data.slice(1)
+
+    const expectedHeaders = {
+      'room_name': ['ชื่อห้อง', 'Room Name', 'ห้อง', 'room'],
+      'user_name': ['ชื่อผู้จอง', 'User Name', 'ผู้จอง', 'user', 'ผู้ใช้'],
+      'start_time': ['วันที่เริ่มต้น', 'Start Time', 'เริ่มต้น', 'start', 'เวลาเริ่ม'],
+      'end_time': ['วันที่สิ้นสุด', 'End Time', 'สิ้นสุด', 'end', 'เวลาสิ้นสุด'],
+      'purpose': ['วัตถุประสงค์', 'Purpose', 'จุดประสงค์', 'course', 'วิชา', 'รหัสวิชา'],
+      'section': ['กลุ่ม', 'Section', 'sec', 'หมายเลข'],
+      'location': ['ห้อง', 'Location', 'loc', 'สถานที่'],
+      'notes': ['หมายเหตุ', 'Notes', 'รายละเอียด', 'note']
+    }
+
+    const columnIndices = {}
+    headers.forEach((header, index) => {
+      Object.keys(expectedHeaders).forEach(key => {
+        if (expectedHeaders[key].some(h => header.toLowerCase().includes(h.toLowerCase()))) {
+          columnIndices[key] = index
+        }
+      })
+    })
+
+    const roomLookup = new Map(
+      rooms.map(r => [normalizeRoomName(r.name), r])
+    )
+
+    const processedData = rows.map((row, index) => {
+      const rawRoom = row[columnIndices.room_name] || ''
+      const normalized = normalizeRoomName(rawRoom)
+      const matchedRoom = roomLookup.get(normalized) || null
+
+      const startIso = parseExcelDateTime(row[columnIndices.start_time])
+      const endIso = parseExcelDateTime(row[columnIndices.end_time])
+
+      const section = row[columnIndices.section] || ''
+      const location = row[columnIndices.location] || ''
+      const purpose = row[columnIndices.purpose] || ''
+      
+      // Create display text like "COM 2602" for purpose, "51" for section, "L201" for location
+      const displayPurpose = purpose || 'การจอง'
+      const displaySection = section || 'ไม่ระบุ'
+      const displayLocation = location || 'ไม่ระบุ'
+
+      const item = {
+        id: `import_${index + 1}`,
+        room_name: rawRoom || '',
+        user_name: row[columnIndices.user_name] || '',
+        start_time: startIso,
+        end_time: endIso,
+        purpose: displayPurpose,
+        section: displaySection,
+        location: displayLocation,
+        notes: row[columnIndices.notes] || '',
+        status: 'pending',
+        is_imported: true,
+        room_id: matchedRoom?.id || null
+      }
+      return item
+    }).filter(item => item.room_name && item.user_name && item.start_time && item.end_time)
+
+    return processedData
+  }
+
+  const handleImportConfirm = async () => {
+    if (importedData.length === 0) return
+
+    setImportLoading(true)
+    try {
+      const newBookings = importedData.map(item => ({
+        ...item,
+        id: Date.now() + Math.random(),
+        room: { name: item.room_name, location: '' },
+        user: { name: item.user_name, email: '' }
+      }))
+
+      setBookings(prev => [...prev, ...newBookings])
+      setShowImportModal(false)
+      setImportedData([])
+    } catch (error) {
+      console.error('Error importing data:', error)
+      setImportError('เกิดข้อผิดพลาดในการนำเข้าข้อมูล')
+    } finally {
+      setImportLoading(false)
     }
   }
 
@@ -166,98 +245,208 @@ export default function AdminSchedulePage() {
     return bookings.filter(booking => booking.room_id === roomId)
   }
 
-  const formatTime = (timeString) => {
-    return new Date(timeString).toLocaleTimeString('th-TH', {
-      hour: '2-digit',
-      minute: '2-digit'
+  const getBookingsForDate = (date) => {
+    return bookings.filter(booking => {
+      const bookingDate = new Date(booking.start_time).toISOString().split('T')[0]
+      return bookingDate === date
     })
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-100 text-green-800'
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'rejected':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
+  const getBookingsForRoomAndDate = (roomId, date) => {
+    return bookings.filter(booking => {
+      const bookingDate = new Date(booking.start_time).toISOString().split('T')[0]
+      return booking.room_id === roomId && bookingDate === date
+    })
+  }
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800',
+      cancelled: 'bg-gray-100 text-gray-800'
     }
+    return badges[status] || 'bg-gray-100 text-gray-800'
   }
 
   const getStatusText = (status) => {
-    switch (status) {
-      case 'approved':
-        return 'อนุมัติแล้ว'
-      case 'pending':
-        return 'รออนุมัติ'
-      case 'rejected':
-        return 'ปฏิเสธ'
-      default:
-        return 'ไม่ทราบสถานะ'
+    const texts = {
+      pending: 'รออนุมัติ',
+      approved: 'อนุมัติแล้ว',
+      rejected: 'ปฏิเสธ',
+      cancelled: 'ยกเลิก'
     }
+    return texts[status] || status
   }
 
-  const handleDisplayDateChange = (e) => {
-    const value = e.target.value
-    if (value.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      const isoDate = convertDDMMYYYYToISO(value)
-      setSelectedDate(isoDate)
+  // Weekly timetable helpers
+  const getWeekStart = (date) => {
+    const d = new Date(date)
+    const day = d.getDay() === 0 ? 7 : d.getDay() // Monday=1..Sunday=7
+    const monday = new Date(d)
+    monday.setDate(d.getDate() - (day - 1))
+    monday.setHours(0, 0, 0, 0)
+    return monday
+  }
+
+  const weekStart = getWeekStart(selectedDate)
+  const getWeekDays = () => {
+    return Array.from({ length: 7 }).map((_, i) => {
+      const day = new Date(weekStart)
+      day.setDate(weekStart.getDate() + i)
+      return day
+    })
+  }
+
+  const generateTimeSlots = () => {
+    const startHour = 7
+    const endHour = 20
+    const slots = []
+    for (let h = startHour; h < endHour; h++) {
+      const start = `${String(h).padStart(2, '0')}:00`
+      const end = `${String(h + 1).padStart(2, '0')}:00`
+      slots.push({ start, end })
     }
+    return slots
   }
 
-  // Get week start and end dates
-  const getWeekDates = (date) => {
-    const start = new Date(date)
-    const day = start.getDay()
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1) // Monday as first day
-    start.setDate(diff)
-    
-    const end = new Date(start)
-    end.setDate(start.getDate() + 6)
-    
-    return { start, end }
+  const formatThaiDate = (d) => {
+    return d.toLocaleDateString('th-TH', { weekday: 'short', day: '2-digit', month: 'short' })
   }
 
-  // Format date for display (DD/MM/YYYY)
-  const formatDate = (date) => {
-    const day = date.getDate().toString().padStart(2, '0')
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const year = date.getFullYear()
-    return `${day}/${month}/${year}`
+  const getThaiDayAbbr = (day) => {
+    const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+    return dayNames[day.getDay()]
   }
 
-  // Navigate to previous/next week
-  const navigateWeek = (direction) => {
-    const newWeek = new Date(currentWeek)
-    newWeek.setDate(newWeek.getDate() + (direction * 7))
-    setCurrentWeek(newWeek)
+  const isSameDay = (a, b) => {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
   }
 
-  // Get week range display
-  const weekRange = getWeekDates(currentWeek)
-  const weekRangeText = `${formatDate(weekRange.start)} - ${formatDate(weekRange.end)}`
+  const findBookingInSlot = (roomId, day, slot) => {
+    const [sh, sm] = slot.start.split(':').map(Number)
+    const [eh, em] = slot.end.split(':').map(Number)
 
-  // Handle semester selection
-  const handleSemesterChange = (semester) => {
-    setSelectedSemester(semester)
-    // You can add logic here to filter data by semester
-    console.log(`Selected semester: ${semester}`)
+    const slotStart = new Date(day)
+    slotStart.setHours(sh, sm, 0, 0)
+    const slotEnd = new Date(day)
+    slotEnd.setHours(eh, em, 0, 0)
+
+    return bookings.find(b => {
+      if (roomId && b.room_id && b.room_id !== Number(roomId)) return false
+      const bs = new Date(b.start_time)
+      const be = new Date(b.end_time)
+      return (bs < slotEnd && be > slotStart) && isSameDay(bs, day)
+    })
   }
 
-  if (loading) {
+  // Build row cells with merged spans per booking
+  const buildDayCells = (day, roomId) => {
+    const slots = generateTimeSlots()
+    const dayBookings = bookings
+      .filter(b => {
+        if (roomId && b.room_id && Number(roomId) !== b.room_id) return false
+        const bs = new Date(b.start_time)
+        return isSameDay(bs, day)
+      })
+      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+
+    let slotIndex = 0
+    const cells = []
+
+    while (slotIndex < slots.length) {
+      const slot = slots[slotIndex]
+      const [sh, sm] = slot.start.split(':').map(Number)
+      const slotStart = new Date(day)
+      slotStart.setHours(sh, sm, 0, 0)
+      const [eh, em] = slot.end.split(':').map(Number)
+      const slotEnd = new Date(day)
+      slotEnd.setHours(eh, em, 0, 0)
+
+      const booking = dayBookings.find(b => {
+        const bs = new Date(b.start_time)
+        const be = new Date(b.end_time)
+        return (bs < slotEnd && be > slotStart)
+      })
+
+      if (!booking) {
+        cells.push({ type: 'empty', span: 1 })
+        slotIndex += 1
+        continue
+      }
+
+      // Calculate how many slots the booking spans
+      const bookingStart = new Date(booking.start_time)
+      const bookingEnd = new Date(booking.end_time)
+
+      // Clamp to day bounds
+      const dayStart = new Date(day)
+      dayStart.setHours(7, 0, 0, 0)
+      const dayEnd = new Date(day)
+      dayEnd.setHours(20, 0, 0, 0)
+
+      const visibleStart = bookingStart < dayStart ? dayStart : bookingStart
+      const visibleEnd = bookingEnd > dayEnd ? dayEnd : bookingEnd
+
+      const startHour = Math.max(7, visibleStart.getHours() + (visibleStart.getMinutes() > 0 ? 1 : 0))
+      const endHour = Math.min(20, visibleEnd.getMinutes() > 0 ? visibleEnd.getHours() + 1 : visibleEnd.getHours())
+      const span = Math.max(1, endHour - startHour)
+
+      cells.push({ type: 'booking', span, booking })
+      slotIndex += span
+    }
+
+    return cells
+  }
+
+  // Excel helpers
+  const parseExcelDateTime = (value) => {
+    if (!value) return ''
+    if (typeof value === 'number') {
+      // Excel serial date
+      const d = XLSX.SSF.parse_date_code(value)
+      if (!d) return ''
+      const date = new Date(Date.UTC(d.y, d.m - 1, d.d, d.H || 0, d.M || 0, d.S || 0))
+      return date.toISOString()
+    }
+    if (value instanceof Date) {
+      return new Date(value).toISOString()
+    }
+    // Try to parse common string formats (including Buddhist year)
+    const str = String(value).trim()
+    // If contains Buddhist year, convert to Gregorian
+    const buddhistMatch = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?/)
+    if (buddhistMatch) {
+      const day = Number(buddhistMatch[1])
+      const month = Number(buddhistMatch[2]) - 1
+      let year = Number(buddhistMatch[3])
+      if (year > 2400) year -= 543
+      const hh = Number(buddhistMatch[4] || 0)
+      const mm = Number(buddhistMatch[5] || 0)
+      return new Date(year, month, day, hh, mm, 0, 0).toISOString()
+    }
+    const parsed = new Date(str)
+    return isNaN(parsed.getTime()) ? '' : parsed.toISOString()
+  }
+
+  const normalizeRoomName = (name) => String(name || '').toLowerCase().replace(/\s+/g, '')
+
+  if (loading || roomsLoading) {
     return (
       <div className="p-8">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white p-6 rounded-lg shadow">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          </div>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="h-12 bg-gray-200"></div>
+            <div className="space-y-2 p-4">
+              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <div key={i} className="h-8 bg-gray-200 rounded"></div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -279,7 +468,7 @@ export default function AdminSchedulePage() {
               <h3 className="text-sm font-medium text-yellow-800">แจ้งเตือน</h3>
               <div className="mt-2 text-sm text-yellow-700">
                 <p>{errorMessage}</p>
-                <p className="mt-1">กรุณาตรวจสอบว่า Laravel backend กำลังทำงานอยู่ที่ http://127.0.0.1:8000</p>
+                <p className="mt-1">กำลังใช้ข้อมูลจำลอง กรุณาตรวจสอบการเชื่อมต่อ API</p>
               </div>
             </div>
           </div>
@@ -288,29 +477,48 @@ export default function AdminSchedulePage() {
 
       {/* Header Section */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-orange-600 mb-4">ตารางการใช้ห้อง</h1>
+        <h1 className="text-3xl font-bold text-orange-600 mb-2">ตารางการใช้ห้อง</h1>
+        <p className="text-gray-600 mb-6">ศูนย์/สถานศึกษา แม่ริม อาคารคอมพิวเตอร์</p>
         
         {/* Controls Section */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Academic Year and Week Navigation Combined */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">คุณลักษณะ</label>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">ปีการศึกษา</span>
-                  <select 
-                    value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="2567">2567</option>
-                    <option value="2568">2568</option>
-                    <option value="2569">2569</option>
-                  </select>
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ห้อง</label>
+                <select
+                  value={selectedRoom}
+                  onChange={(e) => setSelectedRoom(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 min-w-[200px]"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {rooms.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} : {r.description} ความจุ : {r.capacity}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">คุณลักษณะ</label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">ปีการศึกษา</span>
+                    <select 
+                      value={academicYear}
+                      onChange={(e) => setAcademicYear(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="2567">2567</option>
+                      <option value="2568">2568</option>
+                      <option value="2569">2569</option>
+                    </select>
+                  </div>
+                  
                   <div className="flex space-x-1">
                     <button 
-                      onClick={() => handleSemesterChange(1)}
+                      onClick={() => setSelectedSemester(1)}
                       className={`px-3 py-1 text-sm rounded transition-colors ${
                         selectedSemester === 1 
                           ? 'bg-blue-500 text-white' 
@@ -320,7 +528,7 @@ export default function AdminSchedulePage() {
                       1
                     </button>
                     <button 
-                      onClick={() => handleSemesterChange(2)}
+                      onClick={() => setSelectedSemester(2)}
                       className={`px-3 py-1 text-sm rounded transition-colors ${
                         selectedSemester === 2 
                           ? 'bg-blue-500 text-white' 
@@ -330,7 +538,7 @@ export default function AdminSchedulePage() {
                       2
                     </button>
                     <button 
-                      onClick={() => handleSemesterChange(3)}
+                      onClick={() => setSelectedSemester(3)}
                       className={`px-3 py-1 text-sm rounded transition-colors ${
                         selectedSemester === 3 
                           ? 'bg-blue-500 text-white' 
@@ -341,189 +549,237 @@ export default function AdminSchedulePage() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    const currentDate = new Date(selectedDate)
+                    const prevWeek = new Date(currentDate)
+                    prevWeek.setDate(currentDate.getDate() - 7)
+                    const newDate = prevWeek.toISOString().split('T')[0]
+                    console.log('Moving to previous week:', newDate)
+                    setSelectedDate(newDate)
+                  }}
+                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                  title="สัปดาห์ก่อนหน้า"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
                 
-                {/* Week Navigation - Now inline with Academic Year */}
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-gray-700">ระหว่าง</span>
-                  <button 
-                    onClick={() => navigateWeek(-1)}
-                    className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800"
+                <div className="text-center">
+                  <div className="text-sm font-medium text-gray-900">
+                    ระหว่าง {weekStart.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      setSelectedDate(today.toISOString().split('T')[0])
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline mt-1"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
+                    กลับไปสัปดาห์นี้
                   </button>
-                  <span className="text-sm font-medium text-gray-900 px-2">
-                    {weekRangeText}
-                  </span>
-                  <button 
-                    onClick={() => navigateWeek(1)}
-                    className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </div>
+                
+                <button
+                  onClick={() => {
+                    const currentDate = new Date(selectedDate)
+                    const nextWeek = new Date(currentDate)
+                    nextWeek.setDate(currentDate.getDate() + 7)
+                    const newDate = nextWeek.toISOString().split('T')[0]
+                    console.log('Moving to next week:', newDate)
+                    setSelectedDate(newDate)
+                  }}
+                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                  title="สัปดาห์ถัดไป"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+              
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                นำเข้า Excel
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly timetable */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {rooms.length === 0 ? (
+            <div className="p-8 text-center">
+              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">ไม่พบข้อมูลห้อง</h3>
+              <p className="text-gray-600">กรุณาตรวจสอบการเชื่อมต่อ API หรือลองรีเฟรชหน้า</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse border border-gray-400">
+                <thead>
+                  <tr>
+                    <th className="bg-gray-600 text-white px-4 py-3 text-center text-sm font-medium border border-gray-400">วัน/เวลา</th>
+                    {generateTimeSlots().map((slot, idx) => (
+                      <th key={idx} className="bg-gray-600 text-white px-2 py-3 text-center text-sm font-medium border border-gray-400">
+                        {slot.start}-{slot.end}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {getWeekDays().map((day, dayIdx) => {
+                    const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                    return (
+                      <tr key={dayIdx} className={isWeekend ? 'bg-red-50' : 'bg-white'}>
+                        <td className={`px-4 py-3 text-sm font-medium text-center border border-gray-400 ${isWeekend ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-800'}`}>
+                          {getThaiDayAbbr(day)}
+                        </td>
+                        {buildDayCells(day, selectedRoom || null).map((cell, idx) => (
+                          <td
+                            key={idx}
+                            colSpan={cell.span}
+                            className={`px-1 py-1 align-top border border-gray-400 ${isWeekend ? 'bg-red-50' : 'bg-white'}`}
+                          >
+                            {cell.type === 'booking' ? (
+                              <div className="bg-blue-100 border border-blue-300 rounded p-1 text-xs h-12 flex flex-col justify-center items-center text-center">
+                                <div className="font-bold text-blue-900 underline">{cell.booking.purpose || 'การจอง'}</div>
+                                <div className="text-blue-800 font-medium">{cell.booking.section || cell.booking.user?.name || 'ไม่ระบุ'}</div>
+                                <div className="text-blue-800 font-medium">{cell.booking.location || cell.booking.room?.name || rooms.find(r => r.id === cell.booking.room_id)?.name || 'ไม่ระบุ'}</div>
+                              </div>
+                            ) : (
+                              <div className="h-12 border border-gray-400"></div>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">ตรวจสอบข้อมูลที่นำเข้า</h3>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {importError && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
-                  </button>
+                    <p className="text-red-800">{importError}</p>
+          </div>
+        </div>
+      )}
+
+              {importedData.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-3">
+                    พบข้อมูล {importedData.length} รายการที่สามารถนำเข้าได้
+                  </p>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้อง</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้จอง</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เริ่มต้น</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สิ้นสุด</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วัตถุประสงค์</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {importedData.slice(0, 10).map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-sm text-gray-900">{item.room_name}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900">{item.user_name}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900">{item.start_time}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900">{item.end_time}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900">{item.purpose}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {importedData.length > 10 && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      และอีก {importedData.length - 10} รายการ...
+                    </p>
+                  )}
+        </div>
+      )}
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-800">รูปแบบไฟล์ Excel ที่รองรับ</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      ไฟล์ต้องมีคอลัมน์: ชื่อห้อง, ชื่อผู้จอง, วันที่เริ่มต้น, วันที่สิ้นสุด, วัตถุประสงค์, หมายเหตุ
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Room Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">เลือกห้อง</label>
-              <div className="flex space-x-2">
-                <select 
-                  value={selectedRoom}
-                  onChange={(e) => setSelectedRoom(e.target.value)}
-                  disabled={roomsLoading}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">
-                    {roomsLoading ? 'กำลังโหลดข้อมูลห้อง...' : 'เลือกห้อง'}
-                  </option>
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name} - {room.description || 'ไม่มีคำอธิบาย'} (ความจุ: {room.capacity} คน) - {room.location}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => {
-                    setApiError(false)
-                    setErrorMessage('')
-                    fetchRooms()
-                  }}
-                  disabled={roomsLoading}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  title="รีเฟรชข้อมูลห้อง"
-                >
-                  {roomsLoading ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  )}
-                </button>
-              </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleImportConfirm}
+                disabled={importLoading || importedData.length === 0}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {importLoading ? 'กำลังนำเข้า...' : 'ยืนยันการนำเข้า'}
+              </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Schedule Grid */}
-      {selectedRoom && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 bg-orange-500 text-white">
-            <h2 className="text-xl font-bold">ตารางการใช้ห้อง</h2>
-            <p className="text-orange-100">
-              ศูนย์/สถานศึกษา แม่ริม อาคารคอมพิวเตอร์
-            </p>
-            <p className="text-orange-100">
-              {rooms.find(r => r.id == selectedRoom)?.name} : {rooms.find(r => r.id == selectedRoom)?.description || 'ไม่มีคำอธิบาย'} 
-              ความจุ : {rooms.find(r => r.id == selectedRoom)?.capacity} คน
-            </p>
-            <p className="text-orange-100 text-sm">
-              ที่ตั้ง : {rooms.find(r => r.id == selectedRoom)?.location}
-            </p>
-            <p className="text-orange-100 text-sm">
-              ปีการศึกษา : {academicYear} | เทอม : {selectedSemester}
-            </p>
-          </div>
-          {/* Schedule Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="w-16 bg-gray-200 border border-gray-300 p-2 text-center font-medium">วัน/เวลา</th>
-                  {Array.from({ length: 13 }, (_, i) => {
-                    const hour = 7 + i;
-                    const nextHour = hour + 1;
-                    return (
-                      <th key={hour} className="w-20 bg-gray-600 text-white border border-gray-300 p-2 text-center text-xs font-medium">
-                        {hour}:00-{nextHour}:00
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'].map((day, dayIndex) => {
-                  const isWeekend = dayIndex >= 5;
-                  
-                  
-                  return (
-                    <tr key={day}>
-                      <td className={`border border-gray-300 p-2 text-center font-medium ${
-                        isWeekend ? 'bg-red-200 text-red-800' : 'bg-gray-100'
-                      }`}>
-                        {day}
-                      </td>
-                      {Array.from({ length: 13 }, (_, hourIndex) => {
-                        const hour = 7 + hourIndex;
-                        
-                        // Check for real bookings only
-                        const roomBookings = getBookingsForRoom(selectedRoom);
-                        const dayBookings = roomBookings.filter(booking => {
-                          const bookingDate = new Date(booking.start_time);
-                          const bookingDay = bookingDate.getDay();
-                          const dayMapping = [0, 1, 2, 3, 4, 5, 6]; // Sunday=0, Monday=1, etc.
-                          return dayMapping[dayIndex] === bookingDay;
-                        });
-                        
-                        const hourBooking = dayBookings.find(booking => {
-                          const startHour = new Date(booking.start_time).getHours();
-                          return startHour === hour;
-                        });
-
-                        const hasBooking = hourBooking;
-
-                        return (
-                          <td key={hour} className={`border border-gray-300 p-1 text-center text-xs ${
-                            hasBooking ? 'bg-blue-100' : 'bg-gray-50'
-                          }`}>
-                            {hasBooking ? (
-                              <div className="space-y-1">
-                                <div className="font-medium text-blue-800">{hourBooking.purpose}</div>
-                                <div className="text-blue-600">{hourBooking.user?.name || 'ไม่ระบุ'}</div>
-                                <div className="text-blue-500">
-                                  {formatTime(hourBooking.start_time)}-{formatTime(hourBooking.end_time)}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-gray-400">-</div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {!selectedRoom && (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">เลือกห้องเพื่อดูตาราง</h3>
-          <p className="text-gray-600">กรุณาเลือกห้องจากรายการด้านบนเพื่อดูตารางการจอง</p>
-        </div>
-      )}
-
-      {rooms.length === 0 && (
-        <div className="text-center py-12">
-          <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">ไม่มีห้องในระบบ</h3>
-          <p className="text-gray-600">กรุณาเพิ่มห้องก่อนดูตารางการจอง</p>
         </div>
       )}
     </div>

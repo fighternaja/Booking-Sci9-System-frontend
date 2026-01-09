@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import NotificationBell from './NotificationBell'
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth()
@@ -17,6 +18,11 @@ export default function Navbar() {
 
   const getProfileImageUrl = () => {
     if (user?.profile_picture) {
+      // ถ้าเป็น URL เต็ม (เช่น จาก Google) ให้ใช้โดยตรง
+      if (user.profile_picture.startsWith('http://') || user.profile_picture.startsWith('https://')) {
+        return user.profile_picture
+      }
+      // ถ้าไม่ใช่ URL เต็ม ให้เพิ่ม prefix ของ backend
       return `http://127.0.0.1:8000/${user.profile_picture}`
     }
     return null
@@ -58,7 +64,8 @@ export default function Navbar() {
               )}
             </div>
 
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
+              {user && <NotificationBell />}
               {user ? (
                 <div className="relative">
                   <button
@@ -116,7 +123,8 @@ export default function Navbar() {
             </div>
 
             {/* Mobile menu button มือถือ */}
-            <div className="md:hidden flex items-center">
+            <div className="md:hidden flex items-center space-x-2">
+              {user && <NotificationBell />}
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-white hover:text-blue-100 focus:outline-none focus:text-blue-100 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg p-2 transition-all duration-300"

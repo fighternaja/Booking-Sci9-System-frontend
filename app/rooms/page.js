@@ -29,7 +29,15 @@ export default function RoomsPage() {
       })
       
       if (!response.ok) {
-        console.error('HTTP Error:', response.status)
+        const errorText = await response.text()
+        let errorMessage = `HTTP Error: ${response.status}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          errorMessage = errorText || errorMessage
+        }
+        console.error('Error fetching rooms:', errorMessage)
         return
       }
 
@@ -43,10 +51,12 @@ export default function RoomsPage() {
       const data = await response.json()
       
       if (data.success) {
-        setRooms(data.data)
+        setRooms(data.data || [])
+      } else {
+        console.error('API returned unsuccessful response:', data.message || 'Unknown error')
       }
     } catch (error) {
-      console.error('Error fetching rooms:', error)
+      console.error('Error fetching rooms:', error.message || error)
     } finally {
       setLoading(false)
     }

@@ -109,7 +109,7 @@ export default function Home() {
                     stats.totalRooms
                   )}
                 </div>
-                <div className="text-xl text-blue-100 font-medium">ห้องเรียนทั้งหมด</div>
+                <div className="text-xl text-blue-100 font-medium">ห้องทั้งหมด</div>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center border border-white/20 hover:bg-white/20 transition-all duration-300 shadow-lg">
                 <div className="text-5xl mb-4">👥</div>

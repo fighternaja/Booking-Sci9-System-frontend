@@ -27,7 +27,13 @@ export default function ProfilePage() {
         password: ''
       })
       if (user.profile_picture) {
-        setPreview(`http://127.0.0.1:8000/${user.profile_picture}`)
+        // ถ้าเป็น URL เต็ม (เช่น จาก Google) ให้ใช้โดยตรง
+        if (user.profile_picture.startsWith('http://') || user.profile_picture.startsWith('https://')) {
+          setPreview(user.profile_picture)
+        } else {
+          // ถ้าไม่ใช่ URL เต็ม ให้เพิ่ม prefix ของ backend
+          setPreview(`http://127.0.0.1:8000/${user.profile_picture}`)
+        }
       }
     }
   }, [user, authLoading])

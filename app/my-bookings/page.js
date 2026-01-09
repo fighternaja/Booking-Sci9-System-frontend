@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import RescheduleModal from '../components/RescheduleModal'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDateTimeToThai } from '../utils/dateUtils'
 
@@ -10,6 +11,8 @@ export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false)
   const { user, token } = useAuth()
   const router = useRouter()
 
@@ -88,7 +91,7 @@ export default function MyBookingsPage() {
           <p className="text-gray-600">จัดการการจองห้องของคุณ</p>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs  */}
         <div className="mb-8">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -224,14 +227,67 @@ export default function MyBookingsPage() {
                 
                 <div className="flex space-x-2">
                   {booking.status === 'pending' && (
-                    <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <button 
+                      onClick={async () => {
+                        if (!confirm('คุณแน่ใจหรือไม่ที่จะยกเลิกการจองนี้?')) return
+                        try {
+                          const response = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ status: 'cancelled' })
+                          })
+                          const data = await response.json()
+                          if (data.success) {
+                            fetchBookings()
+                          }
+                        } catch (error) {
+                          console.error('Error cancelling booking:', error)
+                        }
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
                       ยกเลิกการจอง
                     </button>
                   )}
-                  {booking.status === 'approved' && (
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                      ดูรายละเอียด
-                    </button>
+                  {booking.status === 'approved' && new Date(booking.start_time) > new Date() && (
+                    <>
+                      <button 
+                        onClick={() => {
+                          setSelectedBooking(booking)
+                          setShowRescheduleModal(true)
+                        }}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        เลื่อนจอง
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          if (!confirm('คุณแน่ใจหรือไม่ที่จะยกเลิกการจองนี้?')) return
+                          try {
+                            const response = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}`, {
+                              method: 'PUT',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                              },
+                              body: JSON.stringify({ status: 'cancelled' })
+                            })
+                            const data = await response.json()
+                            if (data.success) {
+                              fetchBookings()
+                            }
+                          } catch (error) {
+                            console.error('Error cancelling booking:', error)
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        ยกเลิกการจอง
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -248,10 +304,10 @@ export default function MyBookingsPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {filter === 'all' ? 'ยังไม่มีการจอง' : 
-                 filter === 'upcoming' ? 'ไม่มีการจองที่จะมาถึง' :
-                 filter === 'pending' ? 'ไม่มีการจองรออนุมัติ' :
-                 'ไม่มีประวัติการจอง'}
+                {filter === 'all' ? 'ยังไม่มีการจอง' :
+                  filter === 'upcoming' ? 'ไม่มีการจองที่จะมาถึง' :
+                  filter === 'pending' ? 'ไม่มีการจองรออนุมัติ' :
+                  'ไม่มีประวัติการจอง'}
               </h3>
               <p className="text-gray-600 mb-6">
                 {filter === 'all' ? 'เริ่มต้นการจองห้องของคุณเพื่อใช้งานระบบ' : 'ลองเปลี่ยนตัวกรองดูหรือจองห้องใหม่'}
@@ -269,13 +325,28 @@ export default function MyBookingsPage() {
                   </Link>
                 )}
                 <div className="text-sm text-gray-500">
-                  <p>💡 เคล็ดลับ: คุณสามารถจองห้องได้หลายห้องพร้อมกัน</p>
+                  <p> เคล็ดลับ: คุณสามารถจองห้องได้หลายห้องพร้อมกัน </p>
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedBooking && (
+        <RescheduleModal
+          isOpen={showRescheduleModal}
+          onClose={() => {
+            setShowRescheduleModal(false)
+            setSelectedBooking(null)
+          }}
+          booking={selectedBooking}
+          onRescheduleSuccess={() => {
+            fetchBookings()
+          }}
+        />
+      )}
     </div>
   )
 }

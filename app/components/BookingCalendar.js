@@ -12,12 +12,13 @@ moment.locale('th')
 
 const localizer = momentLocalizer(moment)
 
-export default function BookingCalendar({ roomId, room }) {
+export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
   const [events, setEvents] = useState([])
   const [selectedDate, setSelectedDate] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [view, setView] = useState('month')
 
   useEffect(() => {
     fetchBookings()
@@ -26,11 +27,10 @@ export default function BookingCalendar({ roomId, room }) {
   const fetchBookings = async () => {
     try {
       setLoading(true)
-      const startOfMonth = moment(currentDate).startOf('month').format('YYYY-MM-DD')
-      const endOfMonth = moment(currentDate).endOf('month').format('YYYY-MM-DD')
+      const month = moment(currentDate).format('YYYY-MM')
       
       const response = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?start_date=${startOfMonth}&end_date=${endOfMonth}`
+        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?month=${month}`
       )
       const data = await response.json()
       
@@ -52,7 +52,17 @@ export default function BookingCalendar({ roomId, room }) {
   }
 
   const handleSelectSlot = ({ start, end }) => {
-    setSelectedDate({ start, end })
+    // ตั้งค่าเวลาเริ่มต้นและสิ้นสุดเริ่มต้น
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    
+    // ถ้าเลือกทั้งวัน ให้ตั้งเวลาเริ่มต้นเป็น 09:00 และสิ้นสุดเป็น 10:00
+    if (startDate.getHours() === 0 && startDate.getMinutes() === 0) {
+      startDate.setHours(9, 0, 0, 0)
+      endDate.setHours(10, 0, 0, 0)
+    }
+    
+    setSelectedDate({ start: startDate, end: endDate })
     setShowModal(true)
   }
 
@@ -74,6 +84,9 @@ export default function BookingCalendar({ roomId, room }) {
     fetchBookings()
     setShowModal(false)
     setSelectedDate(null)
+    if (onBookingSuccess) {
+      onBookingSuccess()
+    }
   }
 
   const eventStyleGetter = (event) => {
@@ -100,24 +113,59 @@ export default function BookingCalendar({ roomId, room }) {
     }
   }
 
-  const CustomToolbar = ({ label, onNavigate, onView, view }) => {
+  const CustomToolbar = ({ label, onNavigate, onView, view: currentView }) => {
+    const handleNavigate = (action) => {
+      onNavigate(action)
+      if (action === 'TODAY') {
+        const today = new Date()
+        setCurrentDate(today)
+      } else if (action === 'PREV') {
+        const newDate = new Date(currentDate)
+        if (currentView === 'month') {
+          newDate.setMonth(newDate.getMonth() - 1)
+        } else if (currentView === 'week') {
+          newDate.setDate(newDate.getDate() - 7)
+        } else {
+          newDate.setDate(newDate.getDate() - 1)
+        }
+        setCurrentDate(newDate)
+      } else if (action === 'NEXT') {
+        const newDate = new Date(currentDate)
+        if (currentView === 'month') {
+          newDate.setMonth(newDate.getMonth() + 1)
+        } else if (currentView === 'week') {
+          newDate.setDate(newDate.getDate() + 7)
+        } else {
+          newDate.setDate(newDate.getDate() + 1)
+        }
+        setCurrentDate(newDate)
+      }
+    }
+
+    const handleViewChange = (newView) => {
+      onView(newView)
+      setView(newView)
+    }
+
     return (
-      <div className="flex items-center justify-between mb-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => onNavigate('PREV')}
+            onClick={() => handleNavigate('PREV')}
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            type="button"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           
-          <h2 className="text-xl font-semibold text-gray-900">{label}</h2>
+          <h2 className="text-xl font-semibold text-gray-900 min-w-[200px] text-center">{label}</h2>
           
           <button
-            onClick={() => onNavigate('NEXT')}
+            onClick={() => handleNavigate('NEXT')}
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            type="button"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -127,40 +175,44 @@ export default function BookingCalendar({ roomId, room }) {
         
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => onNavigate('TODAY')}
+            onClick={() => handleNavigate('TODAY')}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            type="button"
           >
             วันนี้
           </button>
           
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => onView('month')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                view === 'month' 
+              onClick={() => handleViewChange('month')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                currentView === 'month' 
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
+              type="button"
             >
               เดือน
             </button>
             <button
-              onClick={() => onView('week')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                view === 'week' 
+              onClick={() => handleViewChange('week')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                currentView === 'week' 
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
+              type="button"
             >
               สัปดาห์
             </button>
             <button
-              onClick={() => onView('day')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                view === 'day' 
+              onClick={() => handleViewChange('day')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                currentView === 'day' 
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
+              type="button"
             >
               วัน
             </button>
@@ -194,29 +246,12 @@ export default function BookingCalendar({ roomId, room }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">ปฏิทินการจอง</h3>
-        <p className="text-sm text-gray-600">คลิกที่ช่องว่างเพื่อจอง หรือคลิกที่การจองเพื่อดูรายละเอียด</p>
-        
-        {/* Legend */}
-        <div className="mt-4 flex items-center space-x-6 text-sm">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-            <span className="text-gray-600">การจองในอนาคต</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-            <span className="text-gray-600">การจองปัจจุบัน</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
-            <span className="text-gray-600">การจองที่ผ่านมา</span>
-          </div>
-        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">จองห้องประชุม</h3>
       </div>
 
-      <div className="h-96">
+      <div className="h-[600px] mb-6">
         <Calendar
           localizer={localizer}
           events={events}
@@ -228,7 +263,10 @@ export default function BookingCalendar({ roomId, room }) {
           selectable
           popup
           views={['month', 'week', 'day']}
-          defaultView="month"
+          view={view}
+          onView={setView}
+          date={currentDate}
+          onNavigate={setCurrentDate}
           components={{
             toolbar: CustomToolbar,
             event: CustomEvent
@@ -249,6 +287,29 @@ export default function BookingCalendar({ roomId, room }) {
             showMore: total => `+${total} เพิ่มเติม`
           }}
         />
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-6 pt-4 border-t border-gray-200">
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+          <span className="text-sm text-gray-700">มีการจอง</span>
+        </div>
+        <div className="flex items-center">
+          <input 
+            type="checkbox" 
+            id="today-filter"
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer"
+            onChange={(e) => {
+              if (e.target.checked) {
+                const today = new Date()
+                setCurrentDate(today)
+                setView('month')
+              }
+            }}
+          />
+          <label htmlFor="today-filter" className="text-sm text-gray-700 cursor-pointer">วันนี้</label>
+        </div>
       </div>
 
       <BookingModal

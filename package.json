@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@react-oauth/google": "^0.12.2",
     "date-fns": "^4.1.0",
     "moment": "^2.30.1",
     "next": "15.5.4",

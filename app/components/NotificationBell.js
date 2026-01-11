@@ -47,10 +47,16 @@ export default function NotificationBell() {
       })
 
       if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setNotifications(data.data || [])
-          setUnreadCount(data.unread_count || 0)
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          if (data.success) {
+            setNotifications(data.data || [])
+            setUnreadCount(data.unread_count || 0)
+          }
+        } else {
+          const text = await response.text()
+          console.error('Non-JSON response:', text)
         }
       }
     } catch (error) {

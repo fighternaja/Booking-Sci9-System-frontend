@@ -30,8 +30,26 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
       const month = moment(currentDate).format('YYYY-MM')
       
       const response = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?month=${month}`
+        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?month=${month}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+          }
+        }
       )
+      
+      if (!response.ok) {
+        console.error('Error fetching bookings: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {

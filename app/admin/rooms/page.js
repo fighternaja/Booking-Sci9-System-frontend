@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -20,13 +21,23 @@ export default function AdminRoomsPage() {
     amenities: [],
     is_active: true
   })
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
+    if (!token) {
+      router.push('/login')
+      return
+    }
     fetchRooms()
-  }, [])
+  }, [token])
 
   const fetchRooms = async () => {
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/admin/rooms', {
         headers: {
@@ -36,6 +47,11 @@ export default function AdminRoomsPage() {
       })
       
       if (!response.ok) {
+        if (response.status === 401) {
+          logout()
+          router.push('/login')
+          return
+        }
         console.error('HTTP Error:', response.status)
         setLoading(false)
         return
@@ -67,10 +83,28 @@ export default function AdminRoomsPage() {
         method,
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(formData)
       })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout()
+          router.push('/login')
+          return
+        }
+        console.error('Error saving room: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
 
       const data = await response.json()
 
@@ -113,9 +147,27 @@ export default function AdminRoomsPage() {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout()
+          router.push('/login')
+          return
+        }
+        console.error('Error deleting room: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
 
       const data = await response.json()
 

@@ -128,6 +128,13 @@ export function AuthProvider({ children }) {
       if (!response.ok) {
         return null
       }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return null
+      }
       
       const data = await response.json()
       setUser(data)
@@ -136,45 +143,6 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Get profile error:', error)
       return null
-    }
-  }
-  //ลงชื่อเข้าใช้ด้วย Google
-  const googleLogin = async (token) => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/login/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ token }),
-      })
-
-      if (!response.ok) {
-        return { success: false, message: `HTTP Error: ${response.status}` }
-      }
-
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text()
-        console.error('Non-JSON response:', text)
-        return { success: false, message: 'Server returned invalid response format' }
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        setUser(data.data.user)
-        setToken(data.data.token)
-        localStorage.setItem('token', data.data.token)
-        localStorage.setItem('user', JSON.stringify(data.data.user))
-        return { success: true }
-      } else {
-        return { success: false, message: data.message }
-      }
-    } catch (error) {
-      console.error('Google login error:', error)
-      return { success: false, message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google: ' + error.message }
     }
   }
 
@@ -200,6 +168,19 @@ export function AuthProvider({ children }) {
         body: formData,
       })
       
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error updating user: HTTP', response.status, errorText)
+        return { success: false, message: `HTTP Error: ${response.status}` }
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return { success: false, message: 'Server returned invalid response format' }
+      }
+      
       const data = await response.json()
       
       if (response.ok) {
@@ -224,8 +205,7 @@ export function AuthProvider({ children }) {
     logout,
     isAdmin,
     getProfile,
-    updateProfile,
-    googleLogin
+    updateProfile
   }
 
   return (

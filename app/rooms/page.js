@@ -154,17 +154,21 @@ export default function RoomsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">ห้องทั้งหมด</h1>
-          <p className="text-gray-600">เลือกห้องที่เหมาะกับความต้องการของคุณ</p>
+          <div className="mb-6">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+              ห้องทั้งหมด
+            </h1>
+            <p className="text-gray-600 text-lg">เลือกห้องที่เหมาะกับความต้องการของคุณ</p>
+          </div>
           
           {/* Search and Filter Bar */}
-          <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="mt-6 bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border-2 border-gray-200 p-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search Bar */}
               <div className="flex-1">
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
@@ -173,17 +177,17 @@ export default function RoomsPage() {
                     placeholder="ค้นหาห้องประชุม..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400 transition-all"
                   />
                 </div>
               </div>
               
               {/* Room Type Filter */}
-              <div className="lg:w-48">
+              <div className="lg:w-56">
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 font-medium transition-all"
                 >
                   <option value="all">ประเภทห้อง</option>
                   {Object.entries(roomTypes).map(([key, value]) => (
@@ -193,11 +197,11 @@ export default function RoomsPage() {
               </div>
               
               {/* Status Filter */}
-              <div className="lg:w-48">
+              <div className="lg:w-56">
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 font-medium transition-all"
                 >
                   <option value="all">ทุกสถานะ</option>
                   {Object.entries(statuses).map(([key, value]) => (
@@ -208,32 +212,33 @@ export default function RoomsPage() {
             </div>
           </div>
           
-          
           {/* Status Legend */}
-          <div className="mt-4 flex items-center space-x-6 text-sm">
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-gray-600">ว่าง</span>
+          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm">
+            <div className="flex items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+              <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full mr-2 shadow-sm"></div>
+              <span className="text-gray-700 font-medium">ว่าง</span>
             </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-              <span className="text-gray-600">มีการจอง</span>
+            <div className="flex items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+              <div className="w-4 h-4 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full mr-2 shadow-sm"></div>
+              <span className="text-gray-700 font-medium">มีการจอง</span>
             </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-              <span className="text-gray-600">ซ่อมบำรุง</span>
+            <div className="flex items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+              <div className="w-4 h-4 bg-gradient-to-r from-red-400 to-rose-500 rounded-full mr-2 shadow-sm"></div>
+              <span className="text-gray-700 font-medium">ซ่อมบำรุง</span>
             </div>
           </div>
         </div>
         
         {!user && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-xl p-5 mb-8 shadow-md">
             <div className="flex items-center">
-              <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-blue-800">
-                <Link href="/register" className="font-semibold underline">สมัครสมาชิก</Link> เพื่อจองห้อง
+              <div className="p-2 bg-blue-500 rounded-full mr-3">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-blue-800 font-medium">
+                <Link href="/register" className="font-bold text-blue-600 hover:text-blue-800 underline decoration-2">สมัครสมาชิก</Link> เพื่อจองห้อง
               </p>
             </div>
           </div>
@@ -241,73 +246,76 @@ export default function RoomsPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRooms.map((room) => (
-            <div key={room.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow relative">
+            <div key={room.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative border-2 border-gray-100">
               {/* Status Badge */}
               <div className="absolute top-4 right-4 z-10">
                 {room.status === 'available' ? (
-                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                    ว่าง
+                  <span className="bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                    ✓ ว่าง
                   </span>
                 ) : room.status === 'maintenance' ? (
-                  <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                    ซ่อมบำรุง
+                  <span className="bg-gradient-to-r from-red-400 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                    ⚠ ซ่อมบำรุง
                   </span>
                 ) : room.status === 'occupied' ? (
-                  <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                    ถูกใช้งาน
+                  <span className="bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                    📅 ถูกใช้งาน
                   </span>
                 ) : (
-                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                    จองแล้ว
+                  <span className="bg-gradient-to-r from-blue-400 to-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                    📌 จองแล้ว
                   </span>
                 )}
               </div>
               
-              <div className="h-48 bg-gray-200 flex items-center justify-center">
+              <div className="h-56 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden relative">
                 {room.image ? (
                   <img
                     src={`http://127.0.0.1:8000/${room.image}`}
                     alt={room.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
                   <div className="text-gray-400 text-center">
-                    <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    <p>ไม่มีรูปภาพ</p>
+                    <div className="w-20 h-20 mx-auto mb-3 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center">
+                      <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium">ไม่มีรูปภาพ</p>
                   </div>
                 )}
               </div>
               
               <div className="p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xl font-semibold text-gray-900">{room.name}</h3>
-                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xl font-bold text-gray-900">{room.name}</h3>
+                  <span className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200">
                     {roomTypes[room.room_type] || room.room_type}
                   </span>
                 </div>
-                <p className="text-gray-600 mb-4 line-clamp-2">{room.description}</p>
+                <p className="text-gray-600 mb-4 line-clamp-2 min-h-[2.5rem]">{room.description || 'ไม่มีคำอธิบาย'}</p>
                 
-                <div className="flex items-center text-sm text-gray-500 mb-2">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {room.location}
-                  {room.floor && ` ชั้น ${room.floor}`}
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                  </svg>
-                  ความจุ {room.capacity} คน
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                    <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="font-medium">{room.location}{room.floor && ` • ชั้น ${room.floor}`}</span>
+                  </div>
+                  
+                  <div className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                    <svg className="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    </svg>
+                    <span className="font-medium">ความจุ {room.capacity} คน</span>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-500">
-                    <span className={`font-medium ${
+                <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                  <div className="text-sm">
+                    <span className={`font-bold ${
                       room.status === 'available' ? 'text-green-600' :
                       room.status === 'maintenance' ? 'text-red-600' :
                       room.status === 'occupied' ? 'text-orange-600' :
@@ -321,21 +329,21 @@ export default function RoomsPage() {
                     room.status === 'available' ? (
                       <Link
                         href={`/rooms/${room.id}/book`}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
                       >
                         จองห้อง
                       </Link>
                     ) : (
-                      <span className="bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed">
+                      <span className="bg-gray-300 text-gray-600 px-5 py-2.5 rounded-lg font-semibold cursor-not-allowed">
                         ไม่สามารถจองได้
                       </span>
                     )
                   ) : (
                     <Link
                       href="/register"
-                      className="bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
+                      className="bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
                     >
-                      ต้องสมัครสมาชิก
+                      สมัครสมาชิก
                     </Link>
                   )}
                 </div>
@@ -345,14 +353,16 @@ export default function RoomsPage() {
         </div>
 
         {filteredRooms.length === 0 && (
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border-2 border-gray-200">
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
+              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
               {selectedType === 'all' ? 'ไม่มีห้องให้เลือก' : `ไม่มีห้องประเภท ${roomTypes[selectedType] || selectedType}`}
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-6">
               {selectedType === 'all' 
                 ? 'กรุณาติดต่อผู้ดูแลระบบ' 
                 : 'ลองเลือกประเภทอื่นหรือดูห้องทั้งหมด'
@@ -361,7 +371,7 @@ export default function RoomsPage() {
             {selectedType !== 'all' && (
               <button
                 onClick={() => setSelectedType('all')}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 ดูห้องทั้งหมด
               </button>

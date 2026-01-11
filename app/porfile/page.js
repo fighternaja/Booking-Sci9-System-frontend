@@ -27,7 +27,7 @@ export default function ProfilePage() {
         password: ''
       })
       if (user.profile_picture) {
-        // ถ้าเป็น URL เต็ม (เช่น จาก Google) ให้ใช้โดยตรง
+        // ถ้าเป็น URL เต็ม ให้ใช้โดยตรง
         if (user.profile_picture.startsWith('http://') || user.profile_picture.startsWith('https://')) {
           setPreview(user.profile_picture)
         } else {

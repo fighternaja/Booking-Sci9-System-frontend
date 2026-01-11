@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../../contexts/AuthContext'
@@ -21,17 +22,31 @@ export default function AdminSchedulePage() {
   const [importError, setImportError] = useState('')
   const dateInputRef = useRef(null)
   const fileInputRef = useRef(null)
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
+    if (!token) {
+      router.push('/login')
+      return
+    }
     fetchData()
-  }, [selectedDate])
+  }, [selectedDate, token])
 
   useEffect(() => {
+    if (!token) {
+      router.push('/login')
+      return
+    }
     fetchRooms()
-  }, [])
+  }, [token])
 
   const fetchRooms = async () => {
+    if (!token) {
+      setRoomsLoading(false)
+      return
+    }
+
     setRoomsLoading(true)
     try {
       const response = await fetch('http://127.0.0.1:8000/api/rooms', {
@@ -40,6 +55,12 @@ export default function AdminSchedulePage() {
           'Authorization': `Bearer ${token}`
         }
       })
+      
+      if (response.status === 401) {
+        logout()
+        router.push('/login')
+        return
+      }
       
       if (response.ok) {
         const contentType = response.headers.get('content-type')
@@ -84,6 +105,11 @@ export default function AdminSchedulePage() {
   }
 
   const fetchData = async () => {
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const response = await fetch('http://127.0.0.1:8000/api/bookings', {
@@ -93,11 +119,24 @@ export default function AdminSchedulePage() {
         }
       })
 
+      if (response.status === 401) {
+        logout()
+        router.push('/login')
+        return
+      }
+
       if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setBookings(data.data)
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          if (data.success) {
+            setBookings(data.data)
+          } else {
+            setBookings([])
+          }
         } else {
+          const text = await response.text()
+          console.error('Non-JSON response:', text)
           setBookings([])
         }
       } else {
@@ -477,7 +516,7 @@ export default function AdminSchedulePage() {
 
       {/* Header Section */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-orange-600 mb-2">ตารางการใช้ห้อง</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">ตารางการใช้ห้อง</h1>
         <p className="text-gray-600 mb-6">ศูนย์/สถานศึกษา แม่ริม อาคารคอมพิวเตอร์</p>
         
         {/* Controls Section */}
@@ -519,30 +558,30 @@ export default function AdminSchedulePage() {
                   <div className="flex space-x-1">
                     <button 
                       onClick={() => setSelectedSemester(1)}
-                      className={`px-3 py-1 text-sm rounded transition-colors ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${
                         selectedSemester === 1 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105' 
+                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
                       }`}
                     >
                       1
                     </button>
                     <button 
                       onClick={() => setSelectedSemester(2)}
-                      className={`px-3 py-1 text-sm rounded transition-colors ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${
                         selectedSemester === 2 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105' 
+                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
                       }`}
                     >
                       2
                     </button>
                     <button 
                       onClick={() => setSelectedSemester(3)}
-                      className={`px-3 py-1 text-sm rounded transition-colors ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${
                         selectedSemester === 3 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105' 
+                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
                       }`}
                     >
                       3
@@ -554,22 +593,22 @@ export default function AdminSchedulePage() {
             
             <div className="flex items-center gap-3">
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    const currentDate = new Date(selectedDate)
-                    const prevWeek = new Date(currentDate)
-                    prevWeek.setDate(currentDate.getDate() - 7)
-                    const newDate = prevWeek.toISOString().split('T')[0]
-                    console.log('Moving to previous week:', newDate)
-                    setSelectedDate(newDate)
-                  }}
-                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                  title="สัปดาห์ก่อนหน้า"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={() => {
+                      const currentDate = new Date(selectedDate)
+                      const prevWeek = new Date(currentDate)
+                      prevWeek.setDate(currentDate.getDate() - 7)
+                      const newDate = prevWeek.toISOString().split('T')[0]
+                      console.log('Moving to previous week:', newDate)
+                      setSelectedDate(newDate)
+                    }}
+                    className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
+                    title="สัปดาห์ก่อนหน้า"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
                 
                 <div className="text-center">
                   <div className="text-sm font-medium text-gray-900">
@@ -580,35 +619,35 @@ export default function AdminSchedulePage() {
                       const today = new Date()
                       setSelectedDate(today.toISOString().split('T')[0])
                     }}
-                    className="text-xs text-blue-600 hover:text-blue-800 underline mt-1"
+                    className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors mt-1"
                   >
                     กลับไปสัปดาห์นี้
                   </button>
                 </div>
                 
-                <button
-                  onClick={() => {
-                    const currentDate = new Date(selectedDate)
-                    const nextWeek = new Date(currentDate)
-                    nextWeek.setDate(currentDate.getDate() + 7)
-                    const newDate = nextWeek.toISOString().split('T')[0]
-                    console.log('Moving to next week:', newDate)
-                    setSelectedDate(newDate)
-                  }}
-                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                  title="สัปดาห์ถัดไป"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={() => {
+                      const currentDate = new Date(selectedDate)
+                      const nextWeek = new Date(currentDate)
+                      nextWeek.setDate(currentDate.getDate() + 7)
+                      const newDate = nextWeek.toISOString().split('T')[0]
+                      console.log('Moving to next week:', newDate)
+                      setSelectedDate(newDate)
+                    }}
+                    className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
+                    title="สัปดาห์ถัดไป"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
               </div>
               
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105"
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 นำเข้า Excel
@@ -636,12 +675,14 @@ export default function AdminSchedulePage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse border border-gray-400">
+              <table className="min-w-full border-collapse border border-gray-300">
                 <thead>
                   <tr>
-                    <th className="bg-gray-600 text-white px-4 py-3 text-center text-sm font-medium border border-gray-400">วัน/เวลา</th>
+                    <th className="bg-gray-700 text-white px-4 py-3 text-center text-sm font-medium border border-gray-400">
+                      วัน/เวลา
+                    </th>
                     {generateTimeSlots().map((slot, idx) => (
-                      <th key={idx} className="bg-gray-600 text-white px-2 py-3 text-center text-sm font-medium border border-gray-400">
+                      <th key={idx} className="bg-gray-700 text-white px-2 py-3 text-center text-xs font-medium border border-gray-400">
                         {slot.start}-{slot.end}
                       </th>
                     ))}
@@ -650,28 +691,44 @@ export default function AdminSchedulePage() {
                 <tbody>
                   {getWeekDays().map((day, dayIdx) => {
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                    const isToday = isSameDay(day, new Date())
                     return (
-                      <tr key={dayIdx} className={isWeekend ? 'bg-red-50' : 'bg-white'}>
-                        <td className={`px-4 py-3 text-sm font-medium text-center border border-gray-400 ${isWeekend ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-800'}`}>
-                          {getThaiDayAbbr(day)}
+                      <tr key={dayIdx} className={isWeekend ? 'bg-red-50' : isToday ? 'bg-blue-50' : 'bg-white'}>
+                        <td className={`px-4 py-3 text-sm font-medium text-center border border-gray-300 ${isWeekend ? 'bg-red-100 text-red-800' : isToday ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                          <div className="flex flex-col items-center">
+                            <span>{getThaiDayAbbr(day)}</span>
+                            <span className="text-xs font-normal">
+                              {day.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                            {isToday && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded mt-1">วันนี้</span>}
+                          </div>
                         </td>
-                        {buildDayCells(day, selectedRoom || null).map((cell, idx) => (
-                          <td
-                            key={idx}
-                            colSpan={cell.span}
-                            className={`px-1 py-1 align-top border border-gray-400 ${isWeekend ? 'bg-red-50' : 'bg-white'}`}
-                          >
-                            {cell.type === 'booking' ? (
-                              <div className="bg-blue-100 border border-blue-300 rounded p-1 text-xs h-12 flex flex-col justify-center items-center text-center">
-                                <div className="font-bold text-blue-900 underline">{cell.booking.purpose || 'การจอง'}</div>
-                                <div className="text-blue-800 font-medium">{cell.booking.section || cell.booking.user?.name || 'ไม่ระบุ'}</div>
-                                <div className="text-blue-800 font-medium">{cell.booking.location || cell.booking.room?.name || rooms.find(r => r.id === cell.booking.room_id)?.name || 'ไม่ระบุ'}</div>
-                              </div>
-                            ) : (
-                              <div className="h-12 border border-gray-400"></div>
-                            )}
-                          </td>
-                        ))}
+                        {buildDayCells(day, selectedRoom || null).map((cell, idx) => {
+                          const bookingStatus = cell.booking?.status || 'approved'
+                          const statusColors = {
+                            approved: 'bg-green-100 border-green-300 text-green-900',
+                            pending: 'bg-yellow-100 border-yellow-300 text-yellow-900',
+                            rejected: 'bg-red-100 border-red-300 text-red-900',
+                            cancelled: 'bg-gray-100 border-gray-300 text-gray-700'
+                          }
+                          return (
+                            <td
+                              key={idx}
+                              colSpan={cell.span}
+                              className={`px-1 py-1 align-top border border-gray-300 ${isWeekend ? 'bg-red-50' : isToday ? 'bg-blue-50' : 'bg-white'}`}
+                            >
+                              {cell.type === 'booking' ? (
+                                <div className={`${statusColors[bookingStatus] || statusColors.approved} border rounded p-1.5 text-xs h-full min-h-[48px] flex flex-col justify-center items-center text-center`}>
+                                  <div className="font-semibold mb-0.5 truncate w-full">{cell.booking.purpose || 'การจอง'}</div>
+                                  <div className="text-xs truncate w-full">{cell.booking.section || cell.booking.user?.name || 'ไม่ระบุ'}</div>
+                                  <div className="text-xs truncate w-full mt-0.5 opacity-80">{cell.booking.location || cell.booking.room?.name || rooms.find(r => r.id === cell.booking.room_id)?.name || 'ไม่ระบุ'}</div>
+                                </div>
+                              ) : (
+                                <div className={`h-12 ${isWeekend ? 'bg-red-50' : isToday ? 'bg-blue-50' : 'bg-white'}`}></div>
+                              )}
+                            </td>
+                          )
+                        })}
                       </tr>
                     )
                   })}

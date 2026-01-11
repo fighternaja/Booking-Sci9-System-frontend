@@ -10,10 +10,11 @@ import { formatDateTimeToThai } from '../utils/dateUtils'
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
-  const { user, token } = useAuth()
+  const { user, token, logout } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -21,24 +22,87 @@ export default function MyBookingsPage() {
       router.push('/login')
       return
     }
+    if (!token) {
+      router.push('/login')
+      return
+    }
     fetchBookings()
-  }, [user, router])
+  }, [user, token, router])
 
   const fetchBookings = async () => {
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
     try {
+      setError(null)
       const response = await fetch('http://127.0.0.1:8000/api/bookings', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid - logout and redirect to login
+          logout()
+          router.push('/login')
+          return
+        }
+        
+        // Try to get error message from response
+        let errorMessage = `เกิดข้อผิดพลาดในการโหลดข้อมูล (HTTP ${response.status})`
+        try {
+          const contentType = response.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json()
+            errorMessage = errorData.message || errorMessage
+          } else {
+            const text = await response.text()
+            if (text && !text.startsWith('<!DOCTYPE')) {
+              errorMessage = text.substring(0, 200)
+            }
+          }
+        } catch (e) {
+          // If we can't parse the error, use default message
+        }
+        
+        // Check for database connection errors
+        if (errorMessage.includes('No connection could be made') || 
+            errorMessage.includes('Connection: mysql') ||
+            errorMessage.includes('target machine actively refused')) {
+          errorMessage = 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้ กรุณาติดต่อผู้ดูแลระบบ'
+        } else if (errorMessage.includes('SQLSTATE') || errorMessage.includes('SQL')) {
+          errorMessage = 'เกิดข้อผิดพลาดในฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ'
+        }
+        
+        setError(errorMessage)
+        console.error('Error fetching bookings: HTTP', response.status, errorMessage)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        setError('เซิร์ฟเวอร์ส่งข้อมูลกลับมาในรูปแบบที่ไม่ถูกต้อง')
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {
-        setBookings(data.data)
+        setBookings(data.data || [])
+        setError(null)
+      } else {
+        setError(data.message || 'ไม่สามารถโหลดข้อมูลการจองได้')
       }
     } catch (error) {
       console.error('Error fetching bookings:', error)
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง')
     } finally {
       setLoading(false)
     }
@@ -116,6 +180,26 @@ export default function MyBookingsPage() {
             </nav>
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">{error}</p>
+              </div>
+              <button
+                onClick={fetchBookings}
+                className="ml-4 text-sm font-medium text-red-600 hover:text-red-800 underline"
+              >
+                ลองใหม่
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Bookings List */}
         <div className="space-y-6">
@@ -235,10 +319,31 @@ export default function MyBookingsPage() {
                             method: 'PUT',
                             headers: {
                               'Authorization': `Bearer ${token}`,
-                              'Content-Type': 'application/json'
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json'
                             },
                             body: JSON.stringify({ status: 'cancelled' })
                           })
+                          
+                          if (!response.ok) {
+                            if (response.status === 401) {
+                              logout()
+                              router.push('/login')
+                              return
+                            }
+                            const errorText = await response.text()
+                            alert(`เกิดข้อผิดพลาด: ${errorText || `HTTP ${response.status}`}`)
+                            console.error('Error cancelling booking: HTTP', response.status)
+                            return
+                          }
+
+                          const contentType = response.headers.get('content-type')
+                          if (!contentType || !contentType.includes('application/json')) {
+                            const text = await response.text()
+                            console.error('Non-JSON response:', text)
+                            return
+                          }
+
                           const data = await response.json()
                           if (data.success) {
                             fetchBookings()
@@ -271,10 +376,31 @@ export default function MyBookingsPage() {
                               method: 'PUT',
                               headers: {
                                 'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
                               },
                               body: JSON.stringify({ status: 'cancelled' })
                             })
+                            
+                            if (!response.ok) {
+                              if (response.status === 401) {
+                                logout()
+                                router.push('/login')
+                                return
+                              }
+                              const errorText = await response.text()
+                              alert(`เกิดข้อผิดพลาด: ${errorText || `HTTP ${response.status}`}`)
+                              console.error('Error cancelling booking: HTTP', response.status)
+                              return
+                            }
+
+                            const contentType = response.headers.get('content-type')
+                            if (!contentType || !contentType.includes('application/json')) {
+                              const text = await response.text()
+                              console.error('Non-JSON response:', text)
+                              return
+                            }
+
                             const data = await response.json()
                             if (data.success) {
                               fetchBookings()

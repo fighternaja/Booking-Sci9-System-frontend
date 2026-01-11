@@ -45,7 +45,8 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
       const response = await fetch(`http://127.0.0.1:8000/api/rooms/${booking.room_id}/check-availability`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           start_time: startTime,
@@ -54,6 +55,20 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
         })
       })
       
+      if (!response.ok) {
+        console.error('Error checking availability: HTTP', response.status)
+        setAvailability({ is_available: false })
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        setAvailability({ is_available: false })
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {
@@ -128,13 +143,35 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           start_time: fullStartTime,
           end_time: fullEndTime
         })
       })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorMessage = `HTTP Error: ${response.status}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          errorMessage = errorText || errorMessage
+        }
+        setError(errorMessage)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        setError('Server returned invalid response format')
+        return
+      }
 
       const data = await response.json()
 

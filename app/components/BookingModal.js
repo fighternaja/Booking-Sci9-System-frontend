@@ -199,7 +199,8 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           room_id: room.id,
@@ -210,12 +211,33 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         })
       })
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorMessage = `HTTP Error: ${response.status}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          errorMessage = errorText || errorMessage
+        }
+        setError(errorMessage)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        setError('Server returned invalid response format')
+        return
+      }
+
       const data = await response.json()
 
       if (data.success) {
         // แสดงข้อความสำเร็จตาม status
-        const message = data.message || (data.data.status === 'pending' 
-          ? 'ส่งคำขอจองห้องแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบ' 
+        const message = data.message || (data.data.status === 'pending'
+          ? 'ส่งคำขอจองห้องแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบ'
           : 'จองห้องสำเร็จ')
         
         // ใช้ onBookingSuccess callback เพื่อ refresh calendar

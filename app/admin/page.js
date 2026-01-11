@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -15,21 +16,51 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [bookingLoading, setBookingLoading] = useState(true)
   const [filter, setFilter] = useState('all')
-  const { token } = useAuth()
+  const { token, logout, user } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
+    if (!token) {
+      router.push('/login')
+      return
+    }
     fetchDashboardData()
     fetchBookings()
-  }, [])
+  }, [token])
 
   const fetchDashboardData = async () => {
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/admin/dashboard', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid - logout and redirect to login
+          logout()
+          router.push('/login')
+          return
+        }
+        console.error('Error fetching dashboard data: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {
@@ -43,13 +74,38 @@ export default function AdminDashboard() {
   }
 
   const fetchBookings = async () => {
+    if (!token) {
+      setBookingLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/bookings', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid - logout and redirect to login
+          logout()
+          router.push('/login')
+          return
+        }
+        console.error('Error fetching bookings: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {
@@ -68,9 +124,27 @@ export default function AdminDashboard() {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout()
+          router.push('/login')
+          return
+        }
+        console.error('Error approving booking: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
 
       const data = await response.json()
 
@@ -91,9 +165,27 @@ export default function AdminDashboard() {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout()
+          router.push('/login')
+          return
+        }
+        console.error('Error rejecting booking: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
 
       const data = await response.json()
 
@@ -167,66 +259,66 @@ export default function AdminDashboard() {
     
       <div className="p-8">
         <div className="mb-8">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-lg transition-colors shadow-md">
-            ภาพรวมระบบ
-          </button>
+          <div className="inline-block bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-semibold text-lg shadow-md">
+            📊 ภาพรวมระบบ
+          </div>
           <p className="text-gray-600 mt-2">ข้อมูลสถิติและการจัดการระบบจองห้อง</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-blue-100">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 rounded-full bg-blue-500 text-white">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">จำนวนห้องทั้งหมด</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardData.total_rooms}</p>
+                <p className="text-sm font-medium text-blue-700">จำนวนห้องทั้งหมด</p>
+                <p className="text-3xl font-bold text-blue-900">{dashboardData.total_rooms}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-100">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 rounded-full bg-green-500 text-white">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">การจองทั้งหมด</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardData.total_bookings}</p>
+                <p className="text-sm font-medium text-green-700">การจองทั้งหมด</p>
+                <p className="text-3xl font-bold text-green-900">{dashboardData.total_bookings}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-yellow-100">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 rounded-full bg-yellow-500 text-white">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">รออนุมัติ</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardData.pending_bookings}</p>
+                <p className="text-sm font-medium text-yellow-700">รออนุมัติ</p>
+                <p className="text-3xl font-bold text-yellow-900">{dashboardData.pending_bookings}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-purple-100">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 rounded-full bg-purple-500 text-white">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">ผู้ใช้ทั้งหมด</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardData.total_users || 0}</p>
+                <p className="text-sm font-medium text-purple-700">ผู้ใช้ทั้งหมด</p>
+                <p className="text-3xl font-bold text-purple-900">{dashboardData.total_users || 0}</p>
               </div>
             </div>
           </div>
@@ -249,7 +341,7 @@ export default function AdminDashboard() {
             
             <div className="space-y-3">
               {bookings.filter(b => b.status === 'pending').slice(0, 3).map((booking) => (
-                <div key={booking.id} className="bg-white rounded-lg p-4 border border-yellow-200">
+                <div key={booking.id} className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg p-4 border-2 border-yellow-300 shadow-sm hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -287,15 +379,15 @@ export default function AdminDashboard() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApprove(booking.id)}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg"
                       >
-                        อนุมัติ
+                        ✓ อนุมัติ
                       </button>
                       <button
                         onClick={() => handleReject(booking.id)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                        className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg"
                       >
-                        ปฏิเสธ
+                        ✕ ปฏิเสธ
                       </button>
                     </div>
                   </div>
@@ -333,10 +425,16 @@ export default function AdminDashboard() {
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm ${
                     filter === tab.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? tab.key === 'all'
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : tab.key === 'pending'
+                        ? 'bg-yellow-500 text-white shadow-md'
+                        : tab.key === 'approved'
+                        ? 'bg-green-500 text-white shadow-md'
+                        : 'bg-red-500 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow'
                   }`}
                 >
                   {tab.label}
@@ -357,7 +455,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-3">
               {filteredBookings.slice(0, 5).map((booking) => (
-                <div key={booking.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                <div key={booking.id} className="bg-gradient-to-r from-white to-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -398,15 +496,15 @@ export default function AdminDashboard() {
                     <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
                       <button
                         onClick={() => handleReject(booking.id)}
-                        className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                        className="px-4 py-2 bg-gradient-to-r from-red-100 to-rose-100 hover:from-red-200 hover:to-rose-200 text-red-700 rounded-lg transition-all shadow-sm hover:shadow text-sm font-medium"
                       >
-                        ปฏิเสธ
+                        ✕ ปฏิเสธ
                       </button>
                       <button
                         onClick={() => handleApprove(booking.id)}
-                        className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                        className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 text-green-700 rounded-lg transition-all shadow-sm hover:shadow text-sm font-medium"
                       >
-                        อนุมัติ
+                        ✓ อนุมัติ
                       </button>
                     </div>
                   )}
@@ -451,72 +549,109 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 gap-3">
               <Link
                 href="/admin/bookings"
-                className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg hover:from-blue-100 hover:to-indigo-100 transition-all border-2 border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md"
               >
-                <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 bg-blue-500 rounded-lg mr-3 text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">จัดการการจอง</p>
+                  <p className="font-semibold text-gray-900">จัดการการจอง</p>
                   <p className="text-sm text-gray-600">ดูและจัดการการจองทั้งหมด</p>
                 </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
 
               <Link
                 href="/admin/rooms"
-                className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg hover:from-purple-100 hover:to-pink-100 transition-all border-2 border-purple-200 hover:border-purple-300 shadow-sm hover:shadow-md"
               >
-                <div className="p-2 bg-purple-100 rounded-lg mr-3">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 bg-purple-500 rounded-lg mr-3 text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">จัดการห้อง</p>
+                  <p className="font-semibold text-gray-900">จัดการห้อง</p>
                   <p className="text-sm text-gray-600">เพิ่ม แก้ไข หรือลบห้อง</p>
                 </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
 
               <Link
                 href="/admin/schedule"
-                className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg hover:from-green-100 hover:to-emerald-100 transition-all border-2 border-green-200 hover:border-green-300 shadow-sm hover:shadow-md"
               >
-                <div className="p-2 bg-green-100 rounded-lg mr-3">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 bg-green-500 rounded-lg mr-3 text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">ตารางการจอง</p>
+                  <p className="font-semibold text-gray-900">ตารางการจอง</p>
                   <p className="text-sm text-gray-600">ดูตารางการจองแบบปฏิทิน</p>
                 </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
 
               <Link
                 href="/admin/reports"
-                className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg hover:from-orange-100 hover:to-amber-100 transition-all border-2 border-orange-200 hover:border-orange-300 shadow-sm hover:shadow-md"
               >
-                <div className="p-2 bg-orange-100 rounded-lg mr-3">
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 bg-orange-500 rounded-lg mr-3 text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">รายงาน</p>
+                  <p className="font-semibold text-gray-900">รายงาน</p>
                   <p className="text-sm text-gray-600">สร้างรายงานการใช้งาน</p>
                 </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
+              <Link
+                href="/admin/users"
+                className="flex items-center p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg hover:from-indigo-100 hover:to-blue-100 transition-all border-2 border-indigo-200 hover:border-indigo-300 shadow-sm hover:shadow-md"
+              >
+                <div className="p-3 bg-indigo-500 rounded-lg mr-3 text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">จัดการผู้ใช้</p>
+                  <p className="text-sm text-gray-600">จัดการผู้ใช้ทั้งหมดในระบบ</p>
+                </div>
+                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
+              <Link
+                href="/admin/settings"
+                className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg hover:from-gray-100 hover:to-slate-100 transition-all border-2 border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md"
+              >
+                <div className="p-3 bg-gray-500 rounded-lg mr-3 text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">การตั้งค่าระบบ</p>
+                  <p className="text-sm text-gray-600">จัดการการตั้งค่าระบบทั้งหมด</p>
+                </div>
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
@@ -529,20 +664,25 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               {dashboardData.recent_bookings.length > 0 ? (
                 dashboardData.recent_bookings.map((booking) => (
-                  <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={booking.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:shadow-md transition-all">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                        <span className="text-blue-600 text-sm font-medium">
+                      <div className={`h-12 w-12 rounded-full flex items-center justify-center mr-3 text-white font-bold ${
+                        booking.status === 'approved' ? 'bg-gradient-to-br from-green-400 to-emerald-500' :
+                        booking.status === 'pending' ? 'bg-gradient-to-br from-yellow-400 to-amber-500' :
+                        booking.status === 'rejected' ? 'bg-gradient-to-br from-red-400 to-rose-500' :
+                        'bg-gradient-to-br from-gray-400 to-slate-500'
+                      }`}>
+                        <span className="text-lg">
                           {booking.user.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{booking.user.name}</p>
+                        <p className="font-semibold text-gray-900">{booking.user.name}</p>
                         <p className="text-sm text-gray-600">{booking.room.name}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(booking.status)}`}>
+                      <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm ${getStatusBadge(booking.status)}`}>
                         {getStatusText(booking.status)}
                       </span>
                       <p className="text-xs text-gray-500 mt-1">

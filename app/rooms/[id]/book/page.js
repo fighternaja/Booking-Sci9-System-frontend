@@ -29,7 +29,24 @@ export default function BookRoomPage() {
 
   const fetchRoom = async () => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/rooms/${params.id}`)
+      const response = await fetch(`http://127.0.0.1:8000/api/rooms/${params.id}`, {
+        headers: {
+          'Accept': 'application/json',
+        }
+      })
+      
+      if (!response.ok) {
+        console.error('Error fetching room: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {
@@ -46,8 +63,26 @@ export default function BookRoomPage() {
     try {
       const today = new Date().toISOString().split('T')[0]
       const response = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${params.id}/bookings?date=${today}`
+        `http://127.0.0.1:8000/api/rooms/${params.id}/bookings?date=${today}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+          }
+        }
       )
+      
+      if (!response.ok) {
+        console.error('Error fetching today bookings: HTTP', response.status)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        return
+      }
+
       const data = await response.json()
       
       if (data.success) {

@@ -125,10 +125,44 @@ export default function SettingsPage() {
         { key: 'auto_approve_admin', label: 'อนุมัติอัตโนมัติสำหรับ Admin', type: 'boolean', value: true, group: 'booking' },
       ],
       notification: [
-        { key: 'email_notifications_enabled', label: 'เปิดใช้งาน Email Notifications', type: 'boolean', value: false, group: 'notification' },
-        { key: 'reminder_before_hours', label: 'เตือนก่อนเริ่ม (ชั่วโมง)', type: 'integer', value: 1, group: 'notification' },
-        { key: 'notification_on_approval', label: 'แจ้งเตือนเมื่ออนุมัติ', type: 'boolean', value: true, group: 'notification' },
-        { key: 'notification_on_rejection', label: 'แจ้งเตือนเมื่อปฏิเสธ', type: 'boolean', value: true, group: 'notification' },
+        { 
+          key: 'email_notifications_enabled', 
+          label: 'เปิดใช้งาน Email Notifications', 
+          type: 'boolean', 
+          value: false, 
+          group: 'notification',
+          description: 'เปิดใช้งานการส่งอีเมลแจ้งเตือนเมื่อมีการเปลี่ยนแปลงสถานะการจอง (สร้าง, อนุมัติ, ปฏิเสธ, ยกเลิก)',
+          icon: '📧'
+        },
+        { 
+          key: 'reminder_before_hours', 
+          label: 'เตือนก่อนเริ่ม (ชั่วโมง)', 
+          type: 'integer', 
+          value: 1, 
+          group: 'notification',
+          description: 'จำนวนชั่วโมงที่ต้องการให้ระบบส่งอีเมลเตือนก่อนการจองเริ่มต้น (แนะนำ: 1-24 ชั่วโมง)',
+          icon: '⏰',
+          min: 1,
+          max: 24
+        },
+        { 
+          key: 'notification_on_approval', 
+          label: 'แจ้งเตือนเมื่ออนุมัติ', 
+          type: 'boolean', 
+          value: true, 
+          group: 'notification',
+          description: 'ส่งอีเมลแจ้งเตือนให้ผู้ใช้เมื่อการจองถูกอนุมัติ',
+          icon: '✅'
+        },
+        { 
+          key: 'notification_on_rejection', 
+          label: 'แจ้งเตือนเมื่อปฏิเสธ', 
+          type: 'boolean', 
+          value: true, 
+          group: 'notification',
+          description: 'ส่งอีเมลแจ้งเตือนให้ผู้ใช้เมื่อการจองถูกปฏิเสธ',
+          icon: '❌'
+        },
       ],
       system: [
         { key: 'max_bookings_per_user', label: 'จำนวนการจองสูงสุดต่อผู้ใช้ (ต่อสัปดาห์)', type: 'integer', value: 10, group: 'system' },
@@ -159,13 +193,20 @@ export default function SettingsPage() {
 
     if (setting.type === 'integer') {
       return (
-        <input
-          type="number"
-          value={currentSetting.value || setting.value || ''}
-          onChange={(e) => updateSetting(setting.key, parseInt(e.target.value) || 0, 'integer')}
-          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={saving}
-        />
+        <div className="relative">
+          <input
+            type="number"
+            value={currentSetting.value || setting.value || ''}
+            onChange={(e) => updateSetting(setting.key, parseInt(e.target.value) || 0, 'integer')}
+            min={setting.min}
+            max={setting.max}
+            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={saving}
+          />
+          {setting.min !== undefined && setting.max !== undefined && (
+            <p className="text-xs text-gray-400 mt-1">ช่วงที่แนะนำ: {setting.min} - {setting.max}</p>
+          )}
+        </div>
       )
     }
 
@@ -248,18 +289,23 @@ export default function SettingsPage() {
             <div className="space-y-6">
               {getDefaultSettings().map((setting) => (
                 <div key={setting.key} className="border-b border-gray-200 pb-6 last:border-b-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-lg font-semibold text-gray-900">
-                      {setting.label}
-                    </label>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {setting.icon && <span className="text-2xl">{setting.icon}</span>}
+                        <label className="text-lg font-semibold text-gray-900">
+                          {setting.label}
+                        </label>
+                      </div>
+                      {setting.description && (
+                        <p className="text-sm text-gray-500 mb-3 ml-8">{setting.description}</p>
+                      )}
+                    </div>
                     {saving && (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 ml-4"></div>
                     )}
                   </div>
-                  {setting.description && (
-                    <p className="text-sm text-gray-500 mb-3">{setting.description}</p>
-                  )}
-                  <div className="mt-2">
+                  <div className="mt-2 ml-8">
                     {renderSettingInput(setting)}
                   </div>
                 </div>

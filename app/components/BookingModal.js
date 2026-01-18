@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import Swal from 'sweetalert2'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function BookingModal({ isOpen, onClose, selectedDate, room, onBookingSuccess }) {
@@ -16,29 +17,81 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
   const [error, setError] = useState('')
   const [availability, setAvailability] = useState(null)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const [showCancelForm, setShowCancelForm] = useState(false)
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
   const { user, token, isAdmin } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (selectedDate && isOpen) {
+    // Reset cancel form when modal opens/closes
+    if (!isOpen) {
+      setShowCancelForm(false)
+      setCancellationReason('')
+      setBaseDate('')
+      setFormData({
+        start_time: '',
+        end_time: '',
+        purpose: '',
+        notes: ''
+      })
+      setError('')
+      setAvailability(null)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (selectedDate && isOpen && selectedDate.start) {
       const startTime = new Date(selectedDate.start)
       const endTime = new Date(selectedDate.end)
-      
-      // ถ้าเป็นการจองใหม่ ให้ตั้งเวลาเริ่มต้นเป็นชั่วโมงถัดไป
-      if (!selectedDate.booking) {
-        // ตั้งเวลาเริ่มต้นเป็นชั่วโมงถัดไป
-        const nextHour = startTime.getHours() + 1
-        startTime.setHours(nextHour, 0, 0, 0)
-        // ตั้งเวลาสิ้นสุดเป็น 2 ชั่วโมงหลังจากเวลาเริ่มต้น
-        endTime.setHours(nextHour + 2, 0, 0, 0)
+      const now = new Date()
+
+      // ตรวจสอบว่า parse วันที่สำเร็จหรือไม่
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        console.error('Invalid date format:', selectedDate)
+        setError('รูปแบบวันที่ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง')
+        return
       }
-      
+
+      // ตรวจสอบว่าไม่ให้เลือกวันที่ในอดีต
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const selectedDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate())
+
+      // ถ้าเป็นการจองใหม่
+      if (!selectedDate.booking) {
+        // ถ้าเลือกวันที่ในอดีต ให้ใช้วันนี้แทน
+        if (selectedDay < today) {
+          startTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate())
+          endTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate())
+        }
+
+        // ตั้งเวลาเริ่มต้นเป็นชั่วโมงถัดไป (แต่ต้องไม่เป็นอดีต)
+        let nextHour = Math.max(now.getHours() + 1, startTime.getHours() + 1)
+        startTime.setHours(nextHour, 0, 0, 0)
+        // ตั้งเวลาสิ้นสุดเป็น 1 ชั่วโมงหลังจากเวลาเริ่มต้น
+        const endHour = nextHour + 1
+        endTime.setHours(endHour, 0, 0, 0)
+
+        // ตรวจสอบอีกครั้งว่าเวลาเริ่มต้นไม่เป็นอดีต
+        if (startTime <= now) {
+          // ถ้ายังเป็นอดีต ให้ตั้งเป็นชั่วโมงถัดไปจากปัจจุบัน
+          const safeNextHour = now.getHours() + 1
+          startTime.setHours(safeNextHour, 0, 0, 0)
+          endTime.setHours(safeNextHour + 1, 0, 0, 0)
+        }
+      }
+
       // แยกวันที่และเวลา (เก็บวันที่ภายใน ไม่แสดงใน UI)
       // ใช้ toISOString() เพื่อให้ได้ format ที่ถูกต้อง
-      const dateStr = startTime.toISOString().slice(0, 10)
+      // แยกวันที่และเวลา (เก็บวันที่ภายใน ไม่แสดงใน UI)
+      // ใช้ local time components แทน toISOString() เพื่อป้องกันวันที่เปลี่ยนเมื่อแปลงเป็น UTC
+      const year = startTime.getFullYear()
+      const month = String(startTime.getMonth() + 1).padStart(2, '0')
+      const day = String(startTime.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
       const startTimeStr = startTime.toTimeString().slice(0, 5)
       const endTimeStr = endTime.toTimeString().slice(0, 5)
-      
+
       setFormData({
         start_time: startTimeStr,
         end_time: endTimeStr,
@@ -46,19 +99,16 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         notes: selectedDate.booking?.notes || ''
       })
       setBaseDate(dateStr)
-      
+
       // ถ้าเป็นการจองใหม่ ให้ตรวจสอบความพร้อม
       if (!selectedDate.booking && room && room.id) {
-        // สร้าง datetime string ในรูปแบบ ISO 8601
-        const fullStartTime = `${dateStr}T${startTimeStr}:00`
-        const fullEndTime = `${dateStr}T${endTimeStr}:00`
-        
+        // สร้าง datetime และแปลงเป็น ISO 8601 string
+        const start = new Date(`${dateStr}T${startTimeStr}:00`)
+        const end = new Date(`${dateStr}T${endTimeStr}:00`)
+
         // ตรวจสอบว่า endTime มากกว่า startTime จริงๆ
-        const start = new Date(fullStartTime)
-        const end = new Date(fullEndTime)
-        
         if (end > start) {
-          checkAvailability(fullStartTime, fullEndTime)
+          checkAvailability(start.toISOString(), end.toISOString())
         } else {
           console.warn('End time must be after start time')
         }
@@ -86,7 +136,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       // แปลงเป็น ISO 8601 format สำหรับ Laravel
       const startISO = new Date(startTime).toISOString()
       const endISO = new Date(endTime).toISOString()
-      
+
       const response = await fetch(`http://127.0.0.1:8000/api/rooms/${room.id}/check-availability`, {
         method: 'POST',
         headers: {
@@ -98,7 +148,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
           end_time: endISO
         })
       })
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         let errorMessage = `HTTP Error: ${response.status}`
@@ -112,9 +162,9 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         setAvailability({ is_available: false })
         return
       }
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         setAvailability(data.data)
       } else {
@@ -133,29 +183,27 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
 
   const handleChange = (e) => {
     const { name, value } = e.target
+
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
-    
+    setError('') // ล้าง error เมื่อกรอกข้อมูลใหม่
+
     // ตรวจสอบความพร้อมอัตโนมัติเมื่อกรอกข้อมูลครบ
     if (name === 'start_time' && baseDate && formData.end_time) {
-      const fullStartTime = `${baseDate}T${value}:00`
-      const fullEndTime = `${baseDate}T${formData.end_time}:00`
+      const start = new Date(`${baseDate}T${value}:00`)
+      const end = new Date(`${baseDate}T${formData.end_time}:00`)
       // ตรวจสอบว่า endTime มากกว่า startTime
-      const start = new Date(fullStartTime)
-      const end = new Date(fullEndTime)
       if (end > start) {
-        checkAvailability(fullStartTime, fullEndTime)
+        checkAvailability(start.toISOString(), end.toISOString())
       }
     } else if (name === 'end_time' && baseDate && formData.start_time) {
-      const fullStartTime = `${baseDate}T${formData.start_time}:00`
-      const fullEndTime = `${baseDate}T${value}:00`
+      const start = new Date(`${baseDate}T${formData.start_time}:00`)
+      const end = new Date(`${baseDate}T${value}:00`)
       // ตรวจสอบว่า endTime มากกว่า startTime
-      const start = new Date(fullStartTime)
-      const end = new Date(fullEndTime)
       if (end > start) {
-        checkAvailability(fullStartTime, fullEndTime)
+        checkAvailability(start.toISOString(), end.toISOString())
       }
     }
   }
@@ -166,20 +214,33 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     setError('')
 
     // ตรวจสอบข้อมูลก่อนส่ง
-    if (!baseDate || !formData.start_time || !formData.end_time || !formData.purpose) {
-      setError('กรุณากรอกข้อมูลให้ครบถ้วน')
+    const missingFields = []
+    if (!baseDate) missingFields.push('วันที่')
+    if (!formData.start_time) missingFields.push('เวลาเริ่มต้น')
+    if (!formData.end_time) missingFields.push('เวลาสิ้นสุด')
+    if (!formData.purpose || formData.purpose.trim() === '') missingFields.push('วัตถุประสงค์')
+
+    if (missingFields.length > 0) {
+      setError(`กรุณากรอกข้อมูลให้ครบถ้วน: ${missingFields.join(', ')}`)
       setLoading(false)
       return
     }
 
-    // รวมวันที่และเวลา
-    const fullStartTime = `${baseDate}T${formData.start_time}:00`
-    const fullEndTime = `${baseDate}T${formData.end_time}:00`
+    // รวมวันที่และเวลา และแปลงเป็น ISO 8601 format
+    const startTime = new Date(`${baseDate}T${formData.start_time}:00`)
+    const endTime = new Date(`${baseDate}T${formData.end_time}:00`)
 
-    // ตรวจสอบว่าเวลาเริ่มต้นไม่เกินเวลาสิ้นสุด
-    const startTime = new Date(fullStartTime)
-    const endTime = new Date(fullEndTime)
-    
+    // ตรวจสอบว่า parse วันที่สำเร็จหรือไม่
+    if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      setError('รูปแบบวันที่หรือเวลาไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง')
+      setLoading(false)
+      return
+    }
+
+    // แปลงเป็น ISO 8601 string ที่มี timezone offset
+    const fullStartTime = startTime.toISOString()
+    const fullEndTime = endTime.toISOString()
+
     if (startTime >= endTime) {
       setError('เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด')
       setLoading(false)
@@ -188,13 +249,44 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
 
     // ตรวจสอบว่าเวลาเริ่มต้นไม่เป็นอดีต
     const now = new Date()
-    if (startTime <= now) {
-      setError('เวลาเริ่มต้นต้องเป็นอนาคต')
+
+    // เปรียบเทียบวันที่ก่อน (ไม่รวมเวลา)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const selectedDate = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate())
+
+    // ถ้าเลือกวันที่ในอดีต
+    if (selectedDate < today) {
+      setError('ไม่สามารถจองวันที่ในอดีตได้ กรุณาเลือกวันที่ปัจจุบันหรืออนาคต')
+      setLoading(false)
+      return
+    }
+
+    // ถ้าเลือกวันนี้ แต่เวลาเริ่มต้นเป็นอดีต
+    if (selectedDate.getTime() === today.getTime() && startTime <= now) {
+      setError('เวลาเริ่มต้นต้องเป็นอนาคต กรุณาเลือกเวลาที่ยังไม่ผ่านไป')
       setLoading(false)
       return
     }
 
     try {
+      // Debug: แสดงข้อมูลที่ส่งไป
+      console.log('Booking request:', {
+        room_id: room.id,
+        start_time: fullStartTime,
+        end_time: fullEndTime,
+        purpose: formData.purpose,
+        notes: formData.notes,
+        local_start: startTime.toString(),
+        local_end: endTime.toString(),
+        token: token ? 'present' : 'missing'
+      })
+
+      if (!token) {
+        setError('กรุณาเข้าสู่ระบบก่อน')
+        setLoading(false)
+        return
+      }
+
       const response = await fetch('http://127.0.0.1:8000/api/bookings', {
         method: 'POST',
         headers: {
@@ -212,15 +304,102 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        let errorMessage = `HTTP Error: ${response.status}`
+        const status = response.status
+        const statusText = response.statusText
+        let errorText = ''
+        let errorData = null
+
+        // อ่าน response body - อ่านครั้งเดียวและเก็บไว้
         try {
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.message || errorMessage
+          // อ่าน response body เป็น text
+          errorText = await response.text()
+
+          // ถ้ามีข้อมูล ลอง parse เป็น JSON
+          if (errorText && errorText.trim() !== '') {
+            try {
+              errorData = JSON.parse(errorText)
+            } catch (parseError) {
+              // ไม่สามารถ parse เป็น JSON ได้ ใช้เป็น text ธรรมดา
+              errorData = null
+            }
+          }
         } catch (e) {
-          errorMessage = errorText || errorMessage
+          console.error('Error reading response body:', e)
+          errorText = ''
+          errorData = null
         }
+
+        // Debug log - แสดงข้อมูลทั้งหมด
+        const debugInfo = {
+          status: status,
+          statusText: statusText,
+          errorText: errorText || '(empty)',
+          errorData: errorData !== null ? errorData : '(null)',
+          hasBody: !!(errorText && errorText.trim() !== ''),
+          contentType: response.headers.get('content-type') || '(not set)',
+          url: response.url || '(unknown)'
+        }
+
+        // ไม่ต้องแสดง debug log ใน production (comment out หรือลบออกได้)
+        // console.error('Booking error response:', JSON.stringify(debugInfo, null, 2))
+
+        let errorMessage = `เกิดข้อผิดพลาด (HTTP ${status})`
+
+        // ตรวจสอบ status code เฉพาะ
+        if (status === 401) {
+          errorMessage = 'กรุณาเข้าสู่ระบบใหม่'
+          router.push('/login')
+          setLoading(false)
+          return
+        } else if (status === 403) {
+          errorMessage = 'คุณไม่มีสิทธิ์ในการจองห้องนี้'
+        } else if (status === 422) {
+          // Laravel validation error
+          if (errorData) {
+            if (errorData.message) {
+              errorMessage = errorData.message
+            } else if (errorData.errors) {
+              const errorMessages = Object.values(errorData.errors).flat()
+              errorMessage = errorMessages.join(', ')
+            }
+          } else if (errorText && errorText.trim() !== '') {
+            errorMessage = errorText
+          } else {
+            errorMessage = 'ข้อมูลที่ส่งไปไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง'
+          }
+        } else if (status === 400) {
+          // Bad request - ตรวจสอบ errorData ก่อน
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message
+          } else if (errorData && errorData.errors) {
+            const errorMessages = Object.values(errorData.errors).flat()
+            errorMessage = errorMessages.join(', ')
+          } else if (errorText && errorText.trim() !== '') {
+            // ลอง parse errorText เป็น JSON ถ้าเป็น JSON string
+            try {
+              const parsed = JSON.parse(errorText)
+              if (parsed.message) {
+                errorMessage = parsed.message
+              } else {
+                errorMessage = errorText
+              }
+            } catch (e) {
+              errorMessage = errorText
+            }
+          } else {
+            errorMessage = 'ข้อมูลที่ส่งไปไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง'
+          }
+        } else if (status >= 500) {
+          errorMessage = 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง'
+        } else if (errorData && errorData.message) {
+          errorMessage = errorData.message
+        } else if (errorText && errorText.trim() !== '') {
+          errorMessage = errorText
+        }
+
+        // แสดง error message ใน UI
         setError(errorMessage)
+        setLoading(false)
         return
       }
 
@@ -239,14 +418,21 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         const message = data.message || (data.data.status === 'pending'
           ? 'ส่งคำขอจองห้องแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบ'
           : 'จองห้องสำเร็จ')
-        
+
         // ใช้ onBookingSuccess callback เพื่อ refresh calendar
         onBookingSuccess()
-        
+
         // แสดงข้อความสำเร็จและ redirect
         setTimeout(() => {
-          alert(message)
-          router.push('/my-bookings')
+          Swal.fire({
+            title: 'สำเร็จ!',
+            text: message,
+            icon: 'success',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#3B82F6' // matches blue-600
+          }).then(() => {
+            router.push('/my-bookings')
+          })
         }, 100)
       } else {
         setError(data.message || 'เกิดข้อผิดพลาดในการจองห้อง')
@@ -259,27 +445,106 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     }
   }
 
+  const handleCancelBooking = async () => {
+    if (!cancellationReason.trim()) {
+      setError('กรุณาระบุเหตุผลในการยกเลิก')
+      return
+    }
+
+    if (!selectedDate?.booking) return
+
+    try {
+      setCancelling(true)
+      setError('')
+
+      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${selectedDate.booking.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          cancellation_reason: cancellationReason.trim()
+        })
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login')
+          return
+        }
+        const errorText = await response.text()
+        let errorMessage = `เกิดข้อผิดพลาด: ${errorText || `HTTP ${response.status}`}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          // ใช้ errorMessage ที่ตั้งไว้แล้ว
+        }
+        setError(errorMessage)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        setError('Server returned invalid response format')
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        Swal.fire({
+          title: 'ยกเลิกสำเร็จ',
+          text: 'ยกเลิกการจองเรียบร้อยแล้ว',
+          icon: 'success',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#3B82F6'
+        }).then(() => {
+          setShowCancelForm(false)
+          setCancellationReason('')
+          if (onBookingSuccess) {
+            onBookingSuccess()
+          }
+          onClose()
+        })
+      } else {
+        setError(data.message || 'ไม่สามารถยกเลิกการจองได้')
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error)
+      setError('เกิดข้อผิดพลาดในการยกเลิกการจอง')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const formatTime = (timeString) => {
     const date = new Date(timeString)
-    return date.toLocaleTimeString('th-TH', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
+    const hour = String(date.getHours()).padStart(2, '0')
+    const minute = String(date.getMinutes()).padStart(2, '0')
+    return `${hour}:${minute} น.`
   }
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    const thaiMonths = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ]
+    const day = date.getDate()
+    const month = thaiMonths[date.getMonth()]
+    const year = date.getFullYear() + 543 // แปลงเป็น พ.ศ.
+    return `${day} ${month} ${year}`
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+    <div className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slideUp">
         {/* Header with Gradient */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 text-white">
@@ -404,6 +669,101 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
                   </div>
                 )}
               </div>
+
+              {/* Cancel Booking Section */}
+              {selectedDate?.booking &&
+                selectedDate.booking.status !== 'cancelled' &&
+                selectedDate.booking.status !== 'rejected' &&
+                (isAdmin || (user && selectedDate.booking.user_id === user.id)) && (
+                  <div className="mt-6 pt-6 border-t-2 border-gray-200">
+                    {!showCancelForm ? (
+                      <button
+                        onClick={() => setShowCancelForm(true)}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        ยกเลิกการจอง
+                      </button>
+                    ) : (
+                      <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+                        <h4 className="text-lg font-semibold text-red-900 mb-4 flex items-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          ยกเลิกการจอง
+                        </h4>
+                        <p className="text-sm text-red-700 mb-4">
+                          คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจองนี้? กรุณาระบุเหตุผลในการยกเลิก
+                        </p>
+
+                        {error && (
+                          <div className="mb-4 bg-red-100 border border-red-300 rounded-lg p-3">
+                            <p className="text-sm text-red-800">{error}</p>
+                          </div>
+                        )}
+
+                        <div className="mb-4">
+                          <label htmlFor="cancellation_reason" className="block text-sm font-medium text-gray-700 mb-2">
+                            เหตุผลในการยกเลิก <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            id="cancellation_reason"
+                            value={cancellationReason}
+                            onChange={(e) => {
+                              setCancellationReason(e.target.value)
+                              setError('') // Clear error when user types
+                            }}
+                            rows={4}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                            placeholder="ระบุเหตุผลในการยกเลิกการจอง เช่น: เปลี่ยนแผน, ไม่สามารถเข้าร่วมได้, ฯลฯ"
+                            required
+                            maxLength={500}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {cancellationReason.length}/500 ตัวอักษร
+                          </p>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={handleCancelBooking}
+                            disabled={!cancellationReason.trim() || cancelling}
+                            className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                          >
+                            {cancelling ? (
+                              <>
+                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                กำลังยกเลิก...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                ยืนยันยกเลิก
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowCancelForm(false)
+                              setCancellationReason('')
+                              setError('')
+                            }}
+                            disabled={cancelling}
+                            className="px-6 py-3 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-700 rounded-lg font-semibold transition-all"
+                          >
+                            ยกเลิก
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
             </div>
           )}
 
@@ -448,67 +808,6 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-gray-200 rounded-xl p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-gray-700 flex items-center">
-                    <svg className="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    เลือกช่วงเวลาอย่างรวดเร็ว
-                  </span>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!formData.start_time || !baseDate) return
-                        // ใช้ baseDate เพื่อให้คำนวณเวลาถูกต้องแม้ผ่านเที่ยงคืน
-                        const startDateTime = new Date(`${baseDate}T${formData.start_time}:00`)
-                        const endDateTime = new Date(startDateTime)
-                        endDateTime.setMinutes(endDateTime.getMinutes() + 30)
-                        const end = `${String(endDateTime.getHours()).padStart(2, '0')}:${String(endDateTime.getMinutes()).padStart(2, '0')}`
-                        setFormData(prev => ({ ...prev, end_time: end }))
-                        const fullStartTime = `${baseDate}T${formData.start_time}:00`
-                        const fullEndTime = endDateTime.toISOString().slice(0, 19)
-                        checkAvailability(fullStartTime, fullEndTime)
-                      }}
-                      className="px-4 py-2 text-sm font-medium rounded-lg border-2 border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-                    >30 นาที</button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!formData.start_time || !baseDate) return
-                        // ใช้ baseDate เพื่อให้คำนวณเวลาถูกต้องแม้ผ่านเที่ยงคืน
-                        const startDateTime = new Date(`${baseDate}T${formData.start_time}:00`)
-                        const endDateTime = new Date(startDateTime)
-                        endDateTime.setMinutes(endDateTime.getMinutes() + 60)
-                        const end = `${String(endDateTime.getHours()).padStart(2, '0')}:${String(endDateTime.getMinutes()).padStart(2, '0')}`
-                        setFormData(prev => ({ ...prev, end_time: end }))
-                        const fullStartTime = `${baseDate}T${formData.start_time}:00`
-                        const fullEndTime = endDateTime.toISOString().slice(0, 19)
-                        checkAvailability(fullStartTime, fullEndTime)
-                      }}
-                      className="px-4 py-2 text-sm font-medium rounded-lg border-2 border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-                    >1 ชม.</button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!formData.start_time || !baseDate) return
-                        // ใช้ baseDate เพื่อให้คำนวณเวลาถูกต้องแม้ผ่านเที่ยงคืน
-                        const startDateTime = new Date(`${baseDate}T${formData.start_time}:00`)
-                        const endDateTime = new Date(startDateTime)
-                        endDateTime.setMinutes(endDateTime.getMinutes() + 120)
-                        const end = `${String(endDateTime.getHours()).padStart(2, '0')}:${String(endDateTime.getMinutes()).padStart(2, '0')}`
-                        setFormData(prev => ({ ...prev, end_time: end }))
-                        const fullStartTime = `${baseDate}T${formData.start_time}:00`
-                        const fullEndTime = endDateTime.toISOString().slice(0, 19)
-                        checkAvailability(fullStartTime, fullEndTime)
-                      }}
-                      className="px-4 py-2 text-sm font-medium rounded-lg border-2 border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-                    >2 ชม.</button>
-                  </div>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <label htmlFor="purpose" className="flex items-center text-sm font-semibold text-gray-900">
                   <svg className="w-4 h-4 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -550,11 +849,10 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
 
               {/* Availability Status */}
               {availability !== null && (
-                <div className={`p-4 rounded-xl border-2 ${
-                  availability.is_available 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-red-50 border-red-200'
-                }`}>
+                <div className={`p-4 rounded-xl border-2 ${availability.is_available
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
+                  }`}>
                   {availability.is_available ? (
                     <div className="flex items-center text-green-700">
                       <div className="p-2 bg-green-100 rounded-lg mr-3">
@@ -671,3 +969,4 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     </div>
   )
 }
+

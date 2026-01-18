@@ -12,6 +12,7 @@ export default function RoomsPage() {
   const [selectedType, setSelectedType] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [roomBookings, setRoomBookings] = useState({}) // เก็บข้อมูลการจองของแต่ละห้อง
   const { user } = useAuth()
 
   useEffect(() => {
@@ -20,6 +21,70 @@ export default function RoomsPage() {
     fetchStatuses()
   }, [])
 
+  useEffect(() => {
+    // ดึงข้อมูลการจองของแต่ละห้องเมื่อ rooms โหลดเสร็จ
+    if (rooms.length > 0) {
+      rooms.forEach(room => {
+        fetchRoomBookings(room.id)
+      })
+    }
+  }, [rooms])
+
+  // ฟังก์ชันคำนวณ week number ของปี
+  const getWeekNumber = (date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+    const dayNum = d.getUTCDay() || 7
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+  }
+
+  // ฟังก์ชันดึงข้อมูลการจองของห้อง
+  const fetchRoomBookings = async (roomId) => {
+    try {
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?start_date=${startOfMonth.toISOString().split('T')[0]}&end_date=${endOfMonth.toISOString().split('T')[0]}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+          }
+        }
+      )
+
+      if (!response.ok) {
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.data) {
+        // คำนวณ week numbers ที่มีการจอง
+        const bookedWeeks = new Set()
+        data.data.forEach(booking => {
+          const startDate = new Date(booking.start_time)
+          const weekNum = getWeekNumber(startDate)
+          bookedWeeks.add(weekNum)
+        })
+
+        setRoomBookings(prev => ({
+          ...prev,
+          [roomId]: Array.from(bookedWeeks).sort((a, b) => a - b)
+        }))
+      }
+    } catch (error) {
+      console.error('Error fetching room bookings:', error)
+    }
+  }
+
   const fetchRooms = async () => {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/rooms', {
@@ -27,7 +92,7 @@ export default function RoomsPage() {
           'Accept': 'application/json',
         }
       })
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         let errorMessage = `HTTP Error: ${response.status}`
@@ -49,7 +114,7 @@ export default function RoomsPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.success) {
         setRooms(data.data || [])
       } else {
@@ -69,7 +134,7 @@ export default function RoomsPage() {
           'Accept': 'application/json',
         }
       })
-      
+
       if (!response.ok) {
         console.error('HTTP Error:', response.status)
         return
@@ -83,7 +148,7 @@ export default function RoomsPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.success) {
         setRoomTypes(data.data)
       }
@@ -99,7 +164,7 @@ export default function RoomsPage() {
           'Accept': 'application/json',
         }
       })
-      
+
       if (!response.ok) {
         console.error('HTTP Error:', response.status)
         return
@@ -113,7 +178,7 @@ export default function RoomsPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.success) {
         setStatuses(data.data)
       }
@@ -126,16 +191,16 @@ export default function RoomsPage() {
   const filteredRooms = rooms.filter(room => {
     // Filter by room type
     const typeMatch = selectedType === 'all' || room.room_type === selectedType
-    
+
     // Filter by status
     const statusMatch = selectedStatus === 'all' || room.status === selectedStatus
-    
+
     // Filter by search query
-    const searchMatch = searchQuery === '' || 
+    const searchMatch = searchQuery === '' ||
       room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       room.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       room.location?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     return typeMatch && statusMatch && searchMatch
   })
 
@@ -160,7 +225,7 @@ export default function RoomsPage() {
             </h1>
             <p className="text-gray-600 text-lg">เลือกห้องที่เหมาะกับความต้องการของคุณ</p>
           </div>
-          
+
           {/* Search and Filter Bar */}
           <div className="mt-6 bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border-2 border-gray-200 p-6">
             <div className="flex flex-col lg:flex-row gap-4">
@@ -181,7 +246,7 @@ export default function RoomsPage() {
                   />
                 </div>
               </div>
-              
+
               {/* Room Type Filter */}
               <div className="lg:w-56">
                 <select
@@ -195,7 +260,7 @@ export default function RoomsPage() {
                   ))}
                 </select>
               </div>
-              
+
               {/* Status Filter */}
               <div className="lg:w-56">
                 <select
@@ -211,24 +276,8 @@ export default function RoomsPage() {
               </div>
             </div>
           </div>
-          
-          {/* Status Legend */}
-          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm">
-            <div className="flex items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-              <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full mr-2 shadow-sm"></div>
-              <span className="text-gray-700 font-medium">ว่าง</span>
-            </div>
-            <div className="flex items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-              <div className="w-4 h-4 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full mr-2 shadow-sm"></div>
-              <span className="text-gray-700 font-medium">มีการจอง</span>
-            </div>
-            <div className="flex items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-              <div className="w-4 h-4 bg-gradient-to-r from-red-400 to-rose-500 rounded-full mr-2 shadow-sm"></div>
-              <span className="text-gray-700 font-medium">ซ่อมบำรุง</span>
-            </div>
-          </div>
         </div>
-        
+
         {!user && (
           <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-xl p-5 mb-8 shadow-md">
             <div className="flex items-center">
@@ -247,27 +296,6 @@ export default function RoomsPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRooms.map((room) => (
             <div key={room.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative border-2 border-gray-100">
-              {/* Status Badge */}
-              <div className="absolute top-4 right-4 z-10">
-                {room.status === 'available' ? (
-                  <span className="bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                    ✓ ว่าง
-                  </span>
-                ) : room.status === 'maintenance' ? (
-                  <span className="bg-gradient-to-r from-red-400 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                    ⚠ ซ่อมบำรุง
-                  </span>
-                ) : room.status === 'occupied' ? (
-                  <span className="bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                    📅 ถูกใช้งาน
-                  </span>
-                ) : (
-                  <span className="bg-gradient-to-r from-blue-400 to-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                    📌 จองแล้ว
-                  </span>
-                )}
-              </div>
-              
               <div className="h-56 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden relative">
                 {room.image ? (
                   <img
@@ -286,7 +314,7 @@ export default function RoomsPage() {
                   </div>
                 )}
               </div>
-              
+
               <div className="p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xl font-bold text-gray-900">{room.name}</h3>
@@ -295,7 +323,7 @@ export default function RoomsPage() {
                   </span>
                 </div>
                 <p className="text-gray-600 mb-4 line-clamp-2 min-h-[2.5rem]">{room.description || 'ไม่มีคำอธิบาย'}</p>
-                
+
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
                     <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,7 +332,7 @@ export default function RoomsPage() {
                     </svg>
                     <span className="font-medium">{room.location}{room.floor && ` • ชั้น ${room.floor}`}</span>
                   </div>
-                  
+
                   <div className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
                     <svg className="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -315,16 +343,18 @@ export default function RoomsPage() {
 
                 <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                   <div className="text-sm">
-                    <span className={`font-bold ${
-                      room.status === 'available' ? 'text-green-600' :
-                      room.status === 'maintenance' ? 'text-red-600' :
-                      room.status === 'occupied' ? 'text-orange-600' :
-                      'text-blue-600'
-                    }`}>
-                      {statuses[room.status] || room.status}
+                    <span className={`font-bold ${room.status === 'available' ? 'text-green-600' :
+                        room.status === 'maintenance' ? 'text-red-600' :
+                          room.status === 'occupied' ? 'text-orange-600' :
+                            'text-blue-600'
+                      }`}>
+                      {room.status === 'occupied' ? 'ห้องนี้ถูกจองแล้ว' :
+                        room.status === 'available' ? 'ว่าง' :
+                          room.status === 'weekly' ? 'เป็นรายอาทิตย์' :
+                            statuses[room.status] || room.status}
                     </span>
                   </div>
-                  
+
                   {user ? (
                     room.status === 'available' ? (
                       <Link
@@ -363,8 +393,8 @@ export default function RoomsPage() {
               {selectedType === 'all' ? 'ไม่มีห้องให้เลือก' : `ไม่มีห้องประเภท ${roomTypes[selectedType] || selectedType}`}
             </h3>
             <p className="text-gray-600 mb-6">
-              {selectedType === 'all' 
-                ? 'กรุณาติดต่อผู้ดูแลระบบ' 
+              {selectedType === 'all'
+                ? 'กรุณาติดต่อผู้ดูแลระบบ'
                 : 'ลองเลือกประเภทอื่นหรือดูห้องทั้งหมด'
               }
             </p>

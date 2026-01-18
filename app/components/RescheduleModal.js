@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import Swal from 'sweetalert2'
 
 export default function RescheduleModal({ isOpen, onClose, booking, onRescheduleSuccess }) {
   const [formData, setFormData] = useState({
@@ -19,29 +20,57 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
     if (booking && isOpen) {
       const startTime = new Date(booking.start_time)
       const endTime = new Date(booking.end_time)
-      
-      const dateStr = startTime.toISOString().slice(0, 10)
-      const startTimeStr = startTime.toTimeString().slice(0, 5)
-      const endTimeStr = endTime.toTimeString().slice(0, 5)
-      
+
+      // ใช้ local time components โดยตรงเพื่อหลีกเลี่ยงปัญหา timezone
+      // getFullYear(), getMonth(), getDate() จะได้ค่าใน local timezone
+      const year = startTime.getFullYear()
+      const month = String(startTime.getMonth() + 1).padStart(2, '0')
+      const day = String(startTime.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
+
+      // ใช้ getHours() และ getMinutes() เพื่อได้เวลาใน local timezone
+      const startHour = String(startTime.getHours()).padStart(2, '0')
+      const startMinute = String(startTime.getMinutes()).padStart(2, '0')
+      const startTimeStr = `${startHour}:${startMinute}`
+
+      const endHour = String(endTime.getHours()).padStart(2, '0')
+      const endMinute = String(endTime.getMinutes()).padStart(2, '0')
+      const endTimeStr = `${endHour}:${endMinute}`
+
       setFormData({
         date: dateStr,
         start_time: startTimeStr,
         end_time: endTimeStr
       })
-      
-      // ตรวจสอบความพร้อม
-      const fullStartTime = `${dateStr}T${startTimeStr}:00`
-      const fullEndTime = `${dateStr}T${endTimeStr}:00`
-      checkAvailability(fullStartTime, fullEndTime)
+
+      // ตรวจสอบความพร้อม - สร้าง Date object จาก local time components
+      const startDateTime = new Date(year, startTime.getMonth(), startTime.getDate(), startTime.getHours(), startTime.getMinutes(), 0)
+      const endDateTime = new Date(endTime.getFullYear(), endTime.getMonth(), endTime.getDate(), endTime.getHours(), endTime.getMinutes(), 0)
+      checkAvailability(startDateTime.toISOString(), endDateTime.toISOString())
     }
   }, [booking, isOpen])
 
   const checkAvailability = async (startTime, endTime) => {
-    if (!startTime || !endTime || !booking) return
+    if (!startTime || !endTime || !booking || !booking.room_id) {
+      console.warn('Missing required data for availability check:', { startTime, endTime, booking })
+      return
+    }
+
+    // ตรวจสอบว่า endTime มากกว่า startTime
+    const start = new Date(startTime)
+    const end = new Date(endTime)
+    if (end <= start) {
+      console.warn('End time must be after start time')
+      setAvailability({ is_available: false })
+      return
+    }
 
     setCheckingAvailability(true)
     try {
+      // แปลงเป็น ISO 8601 format สำหรับ Laravel
+      const startISO = new Date(startTime).toISOString()
+      const endISO = new Date(endTime).toISOString()
+
       const response = await fetch(`http://127.0.0.1:8000/api/rooms/${booking.room_id}/check-availability`, {
         method: 'POST',
         headers: {
@@ -49,14 +78,22 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          start_time: startTime,
-          end_time: endTime,
+          start_time: startISO,
+          end_time: endISO,
           exclude_booking_id: booking.id
         })
       })
-      
+
       if (!response.ok) {
-        console.error('Error checking availability: HTTP', response.status)
+        const errorText = await response.text()
+        let errorMessage = `HTTP Error: ${response.status}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          errorMessage = errorText || errorMessage
+        }
+        console.error('Availability check failed:', errorMessage)
         setAvailability({ is_available: false })
         return
       }
@@ -70,12 +107,16 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
       }
 
       const data = await response.json()
-      
+
       if (data.success) {
         setAvailability(data.data)
+      } else {
+        console.error('Availability check returned unsuccessful:', data.message)
+        setAvailability({ is_available: false })
       }
     } catch (error) {
       console.error('Error checking availability:', error)
+      setAvailability({ is_available: false })
     } finally {
       setCheckingAvailability(false)
     }
@@ -83,24 +124,42 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
 
   const handleChange = (e) => {
     const { name, value } = e.target
+
+    // ตรวจสอบเวลาทำการ (8:00 - 18:00)
+    if (name === 'start_time' || name === 'end_time') {
+      const [hour, minute] = value.split(':').map(Number)
+      if (hour < 8 || hour >= 18) {
+        setError('เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาในช่วงเวลาทำการ')
+        return
+      }
+      if (hour === 18 && minute > 0) {
+        setError('เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาในช่วงเวลาทำการ')
+        return
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
-    
+    setError('') // ล้าง error เมื่อกรอกข้อมูลใหม่
+
     // ตรวจสอบความพร้อมอัตโนมัติเมื่อกรอกข้อมูลครบ
     if (name === 'start_time' && formData.date && formData.end_time) {
-      const fullStartTime = `${formData.date}T${value}:00`
-      const fullEndTime = `${formData.date}T${formData.end_time}:00`
-      checkAvailability(fullStartTime, fullEndTime)
+      const startTimeStr = `${formData.date} ${value}:00`
+      const endTimeStr = `${formData.date} ${formData.end_time}:00`
+      // สร้าง Date object สำหรับแปลงเป็น ISO string สำหรับ API
+      const startTime = new Date(`${formData.date}T${value}:00`)
+      const endTime = new Date(`${formData.date}T${formData.end_time}:00`)
+      checkAvailability(startTime.toISOString(), endTime.toISOString())
     } else if (name === 'end_time' && formData.date && formData.start_time) {
-      const fullStartTime = `${formData.date}T${formData.start_time}:00`
-      const fullEndTime = `${formData.date}T${value}:00`
-      checkAvailability(fullStartTime, fullEndTime)
+      const startTime = new Date(`${formData.date}T${formData.start_time}:00`)
+      const endTime = new Date(`${formData.date}T${value}:00`)
+      checkAvailability(startTime.toISOString(), endTime.toISOString())
     } else if (name === 'date' && formData.start_time && formData.end_time) {
-      const fullStartTime = `${value}T${formData.start_time}:00`
-      const fullEndTime = `${value}T${formData.end_time}:00`
-      checkAvailability(fullStartTime, fullEndTime)
+      const startTime = new Date(`${value}T${formData.start_time}:00`)
+      const endTime = new Date(`${value}T${formData.end_time}:00`)
+      checkAvailability(startTime.toISOString(), endTime.toISOString())
     }
   }
 
@@ -116,14 +175,64 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
       return
     }
 
-    // รวมวันที่และเวลา
-    const fullStartTime = `${formData.date}T${formData.start_time}:00`
-    const fullEndTime = `${formData.date}T${formData.end_time}:00`
+    // สร้าง Date object จาก local time components เพื่อใช้ในการตรวจสอบ
+    const [year, month, day] = formData.date.split('-').map(Number)
+    const [startHour, startMinute] = formData.start_time.split(':').map(Number)
+    const [endHour, endMinute] = formData.end_time.split(':').map(Number)
 
-    // ตรวจสอบว่าเวลาเริ่มต้นไม่เกินเวลาสิ้นสุด
-    const startTime = new Date(fullStartTime)
-    const endTime = new Date(fullEndTime)
-    
+    // ตรวจสอบเวลาทำการ (8:00 - 18:00)
+    if (startHour < 8 || startHour >= 18) {
+      setError('เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาเริ่มต้นในช่วงเวลาทำการ')
+      setLoading(false)
+      return
+    }
+    if (startHour === 18 && startMinute > 0) {
+      setError('เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาเริ่มต้นในช่วงเวลาทำการ')
+      setLoading(false)
+      return
+    }
+    if (endHour < 8 || endHour > 18) {
+      setError('เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาสิ้นสุดในช่วงเวลาทำการ')
+      setLoading(false)
+      return
+    }
+    if (endHour === 18 && endMinute > 0) {
+      setError('เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาสิ้นสุดในช่วงเวลาทำการ')
+      setLoading(false)
+      return
+    }
+
+    // สร้าง Date object จาก local time components (ไม่ระบุ timezone = local time)
+    const startTime = new Date(year, month - 1, day, startHour, startMinute, 0)
+    const endTime = new Date(year, month - 1, day, endHour, endMinute, 0)
+
+    // ใช้ toISOString() เพื่อแปลงเป็น ISO 8601 string ที่มี timezone offset
+    // toISOString() จะแปลงเป็น UTC แต่เราต้องการส่ง local time
+    // ดังนั้นให้สร้าง datetime string ที่ระบุ timezone offset ของ local time
+    const timezoneOffset = -startTime.getTimezoneOffset() // นาที (UTC+7 = -420)
+    const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60)
+    const offsetMinutes = Math.abs(timezoneOffset) % 60
+    const offsetSign = timezoneOffset >= 0 ? '+' : '-'
+    const offsetString = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`
+
+    // สร้าง ISO 8601 string ที่ระบุ local timezone โดยตรง
+    // ใช้ format: YYYY-MM-DDTHH:mm:ss+HH:mm
+    const fullStartTime = `${formData.date}T${formData.start_time}:00${offsetString}`
+    const fullEndTime = `${formData.date}T${formData.end_time}:00${offsetString}`
+
+    // Debug: ตรวจสอบ datetime string ที่สร้าง
+    console.log('Created datetime strings:', {
+      date: formData.date,
+      start_time: formData.start_time,
+      end_time: formData.end_time,
+      timezoneOffset: timezoneOffset,
+      offsetString: offsetString,
+      fullStartTime: fullStartTime,
+      fullEndTime: fullEndTime,
+      startTimeLocal: startTime.toLocaleString('th-TH'),
+      endTimeLocal: endTime.toLocaleString('th-TH')
+    })
+
     if (startTime >= endTime) {
       setError('เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด')
       setLoading(false)
@@ -139,6 +248,13 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
     }
 
     try {
+      // Debug: แสดงข้อมูลที่ส่งไป
+      console.log('Sending reschedule request:', {
+        start_time: fullStartTime,
+        end_time: fullEndTime,
+        booking_id: booking.id
+      })
+
       const response = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}/reschedule`, {
         method: 'POST',
         headers: {
@@ -175,9 +291,34 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
 
       const data = await response.json()
 
+      // Debug: แสดงข้อมูลที่ได้รับกลับมา
+      console.log('Reschedule response:', data)
+      if (data.data) {
+        console.log('Updated booking data:', {
+          start_time: data.data.start_time,
+          end_time: data.data.end_time,
+          start_time_parsed: new Date(data.data.start_time).toLocaleString('th-TH'),
+          end_time_parsed: new Date(data.data.end_time).toLocaleString('th-TH')
+        })
+      }
+
       if (data.success) {
-        onRescheduleSuccess()
-        onClose()
+        // เรียก callback เพื่อ refresh ข้อมูลการจอง
+        // ใช้ setTimeout เพื่อให้ backend มีเวลา update ข้อมูลก่อน
+        setTimeout(() => {
+          Swal.fire({
+            title: 'เลื่อนจองสำเร็จ',
+            text: 'เลื่อนการจองเรียบร้อยแล้ว',
+            icon: 'success',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#3B82F6'
+          }).then(() => {
+            if (onRescheduleSuccess) {
+              onRescheduleSuccess()
+            }
+            onClose()
+          })
+        }, 300)
       } else {
         setError(data.message || 'เกิดข้อผิดพลาดในการเลื่อนจอง')
       }
@@ -191,19 +332,21 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
 
   const formatTime = (timeString) => {
     const date = new Date(timeString)
-    return date.toLocaleTimeString('th-TH', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
+    const hour = String(date.getHours()).padStart(2, '0')
+    const minute = String(date.getMinutes()).padStart(2, '0')
+    return `${hour}:${minute} น.`
   }
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    const thaiMonths = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ]
+    const day = date.getDate()
+    const month = thaiMonths[date.getMonth()]
+    const year = date.getFullYear() + 543 // แปลงเป็น พ.ศ.
+    return `${day} ${month} ${year}`
   }
 
   if (!isOpen || !booking) return null
@@ -276,6 +419,8 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
                   name="start_time"
                   value={formData.start_time}
                   onChange={handleChange}
+                  min="08:00"
+                  max="17:59"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
@@ -289,56 +434,11 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
                   name="end_time"
                   value={formData.end_time}
                   onChange={handleChange}
+                  min="08:00"
+                  max="18:00"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">เลือกช่วงเวลาอย่างรวดเร็ว</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!formData.start_time || !formData.date) return
-                      const [h, m] = formData.start_time.split(':').map(Number)
-                      const d = new Date(2000, 0, 1, h, m)
-                      d.setMinutes(d.getMinutes() + 30)
-                      const end = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-                      setFormData(prev => ({ ...prev, end_time: end }))
-                      checkAvailability(`${formData.date}T${formData.start_time}:00`, `${formData.date}T${end}:00`)
-                    }}
-                    className="px-3 py-1 text-xs rounded-md border border-gray-300 hover:bg-gray-100"
-                  >30 นาที</button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!formData.start_time || !formData.date) return
-                      const [h, m] = formData.start_time.split(':').map(Number)
-                      const d = new Date(2000, 0, 1, h, m)
-                      d.setMinutes(d.getMinutes() + 60)
-                      const end = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-                      setFormData(prev => ({ ...prev, end_time: end }))
-                      checkAvailability(`${formData.date}T${formData.start_time}:00`, `${formData.date}T${end}:00`)
-                    }}
-                    className="px-3 py-1 text-xs rounded-md border border-gray-300 hover:bg-gray-100"
-                  >1 ชม.</button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!formData.start_time || !formData.date) return
-                      const [h, m] = formData.start_time.split(':').map(Number)
-                      const d = new Date(2000, 0, 1, h, m)
-                      d.setMinutes(d.getMinutes() + 120)
-                      const end = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-                      setFormData(prev => ({ ...prev, end_time: end }))
-                      checkAvailability(`${formData.date}T${formData.start_time}:00`, `${formData.date}T${end}:00`)
-                    }}
-                    className="px-3 py-1 text-xs rounded-md border border-gray-300 hover:bg-gray-100"
-                  >2 ชม.</button>
-                </div>
               </div>
             </div>
 

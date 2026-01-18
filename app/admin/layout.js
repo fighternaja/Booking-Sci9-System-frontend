@@ -34,7 +34,7 @@ export default function AdminLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavbar />
-      <main className="ml-64">
+      <main className="ml-64 pt-24">
         {children}
       </main>
     </div>

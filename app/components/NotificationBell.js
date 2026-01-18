@@ -86,13 +86,13 @@ export default function NotificationBell() {
 
   const handleNotificationClick = (notification) => {
     markAsRead(notification.id)
-    
+
     if (notification.type === 'booking_approved' || notification.type === 'booking_rejected') {
       router.push('/my-bookings')
     } else if (notification.type === 'booking_pending' && isAdmin()) {
       router.push('/admin/bookings')
     }
-    
+
     setIsOpen(false)
   }
 
@@ -108,12 +108,16 @@ export default function NotificationBell() {
     if (minutes < 60) return `${minutes} นาทีที่แล้ว`
     if (hours < 24) return `${hours} ชั่วโมงที่แล้ว`
     if (days < 7) return `${days} วันที่แล้ว`
-    
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+
+    // แสดงเป็นรูปแบบไทย
+    const thaiMonths = [
+      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+    ]
+    const day = date.getDate()
+    const month = thaiMonths[date.getMonth()]
+    const year = date.getFullYear() + 543 // แปลงเป็น พ.ศ.
+    return `${day} ${month} ${year}`
   }
 
   const getNotificationIcon = (type) => {
@@ -151,7 +155,7 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+        className="relative p-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-100"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -198,9 +202,8 @@ export default function NotificationBell() {
                   <button
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
-                      !notification.read_at ? 'bg-blue-50' : ''
-                    }`}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${!notification.read_at ? 'bg-blue-50' : ''
+                      }`}
                   >
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-0.5">
@@ -226,19 +229,17 @@ export default function NotificationBell() {
             )}
           </div>
 
-          {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  router.push(isAdmin() ? '/admin/bookings' : '/my-bookings')
-                  setIsOpen(false)
-                }}
-                className="text-xs text-blue-600 hover:text-blue-800 w-full text-center"
-              >
-                ดูทั้งหมด
-              </button>
-            </div>
-          )}
+          <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+            <button
+              onClick={() => {
+                router.push('/notifications')
+                setIsOpen(false)
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800 w-full text-center"
+            >
+              ดูทั้งหมด
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import BookingModal from './BookingModal'
+import Swal from 'sweetalert2'
 import './CalendarStyles.css'
 
 // ตั้งค่า moment locale เป็นภาษาไทย
@@ -28,7 +29,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
     try {
       setLoading(true)
       const month = moment(currentDate).format('YYYY-MM')
-      
+
       const response = await fetch(
         `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?month=${month}`,
         {
@@ -37,7 +38,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
           }
         }
       )
-      
+
       if (!response.ok) {
         console.error('Error fetching bookings: HTTP', response.status)
         return
@@ -51,15 +52,18 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
       }
 
       const data = await response.json()
-      
+
       if (data.success) {
-        const calendarEvents = data.data.map(booking => ({
-          id: booking.id,
-          title: booking.purpose,
-          start: new Date(booking.start_time),
-          end: new Date(booking.end_time),
-          resource: booking
-        }))
+        // กรองการจองที่ยกเลิกแล้วออกจากปฏิทิน
+        const calendarEvents = data.data
+          .filter(booking => booking.status !== 'cancelled' && booking.status !== 'rejected')
+          .map(booking => ({
+            id: booking.id,
+            title: booking.purpose,
+            start: new Date(booking.start_time),
+            end: new Date(booking.end_time),
+            resource: booking
+          }))
         setEvents(calendarEvents)
       }
     } catch (error) {
@@ -70,25 +74,68 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
   }
 
   const handleSelectSlot = ({ start, end }) => {
-    // ตั้งค่าเวลาเริ่มต้นและสิ้นสุดเริ่มต้น
+    // ตรวจสอบว่าไม่ให้เลือกวันที่ในอดีต
+    const now = new Date()
     const startDate = new Date(start)
     const endDate = new Date(end)
-    
-    // ถ้าเลือกทั้งวัน ให้ตั้งเวลาเริ่มต้นเป็น 09:00 และสิ้นสุดเป็น 10:00
-    if (startDate.getHours() === 0 && startDate.getMinutes() === 0) {
-      startDate.setHours(9, 0, 0, 0)
-      endDate.setHours(10, 0, 0, 0)
+
+    // เปรียบเทียบเฉพาะวันที่ (ไม่รวมเวลา)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const selectedDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+
+    // ถ้าเลือกวันที่ในอดีต ให้แจ้งเตือนและไม่เปิด modal
+    if (selectedDay < today) {
+      Swal.fire({
+        title: 'ไม่สามารถจองได้',
+        text: 'ไม่สามารถจองวันที่ในอดีตได้ กรุณาเลือกวันที่ปัจจุบันหรืออนาคต',
+        icon: 'warning',
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#3B82F6'
+      })
+      return
     }
-    
+
+    // ตรวจสอบเวลาทำการ (8:00 - 18:00)
+    const startHour = startDate.getHours()
+    const endHour = endDate.getHours()
+
+    // ถ้าเลือกทั้งวัน ให้ตั้งเวลาเริ่มต้นเป็น 08:00 และสิ้นสุดเป็น 09:00
+    if (startDate.getHours() === 0 && startDate.getMinutes() === 0) {
+      startDate.setHours(8, 0, 0, 0)
+      endDate.setHours(9, 0, 0, 0)
+    } else {
+      // ตรวจสอบว่าเวลาอยู่ในช่วงเวลาทำการหรือไม่
+      if (startHour < 8 || startHour >= 18) {
+        Swal.fire({
+          title: 'อยู่นอกเวลาทำการ',
+          text: 'เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาในช่วงเวลาทำการ',
+          icon: 'warning',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#3B82F6'
+        })
+        return
+      }
+      if (endHour < 8 || endHour > 18) {
+        Swal.fire({
+          title: 'อยู่นอกเวลาทำการ',
+          text: 'เวลาทำการคือ 8:00 - 18:00 น. กรุณาเลือกเวลาในช่วงเวลาทำการ',
+          icon: 'warning',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#3B82F6'
+        })
+        return
+      }
+    }
+
     setSelectedDate({ start: startDate, end: endDate })
     setShowModal(true)
   }
 
   const handleSelectEvent = (event) => {
-    setSelectedDate({ 
-      start: event.start, 
+    setSelectedDate({
+      start: event.start,
       end: event.end,
-      booking: event.resource 
+      booking: event.resource
     })
     setShowModal(true)
   }
@@ -111,7 +158,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
     const now = new Date()
     const isPast = event.end < now
     const isCurrent = event.start <= now && event.end >= now
-    
+
     let backgroundColor = '#3B82F6' // blue
     if (isPast) {
       backgroundColor = '#9CA3AF' // gray
@@ -177,9 +224,9 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          
+
           <h2 className="text-xl font-semibold text-gray-900 min-w-[200px] text-center">{label}</h2>
-          
+
           <button
             onClick={() => handleNavigate('NEXT')}
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -190,7 +237,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
             </svg>
           </button>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handleNavigate('TODAY')}
@@ -199,37 +246,34 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
           >
             วันนี้
           </button>
-          
+
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => handleViewChange('month')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                currentView === 'month' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${currentView === 'month'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
               type="button"
             >
               เดือน
             </button>
             <button
               onClick={() => handleViewChange('week')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                currentView === 'week' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${currentView === 'week'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
               type="button"
             >
               สัปดาห์
             </button>
             <button
               onClick={() => handleViewChange('day')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                currentView === 'day' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${currentView === 'day'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
               type="button"
             >
               วัน
@@ -243,7 +287,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
   const CustomEvent = ({ event }) => {
     const startTime = moment(event.start).format('HH:mm')
     const endTime = moment(event.end).format('HH:mm')
-    
+
     return (
       <div className="text-xs">
         <div className="font-medium truncate">{event.title}</div>
@@ -266,7 +310,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
       <div className="mb-6">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">จองห้องประชุม</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">จองห้อง</h3>
       </div>
 
       <div className="h-[600px] mb-6">
@@ -290,6 +334,38 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
             event: CustomEvent
           }}
           eventPropGetter={eventStyleGetter}
+          dayPropGetter={(date) => {
+            // Disable วันที่ในอดีต
+            const today = new Date()
+            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+            const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+            const isPast = dateOnly < todayOnly
+
+            return {
+              className: isPast ? 'rbc-day-past' : '',
+              style: isPast ? {
+                opacity: 0.5,
+                pointerEvents: 'none',
+                backgroundColor: '#f3f4f6'
+              } : {}
+            }
+          }}
+          slotPropGetter={(date) => {
+            // Disable ช่วงเวลาในอดีตและนอกเวลาทำการ (8:00 - 18:00)
+            const now = new Date()
+            const isPast = date < now
+            const hour = date.getHours()
+            const isOutsideBusinessHours = hour < 8 || hour >= 18
+
+            return {
+              className: (isPast || isOutsideBusinessHours) ? 'rbc-slot-past' : '',
+              style: (isPast || isOutsideBusinessHours) ? {
+                opacity: 0.5,
+                pointerEvents: 'none',
+                backgroundColor: '#f3f4f6'
+              } : {}
+            }
+          }}
           messages={{
             next: 'ถัดไป',
             previous: 'ก่อนหน้า',
@@ -305,29 +381,6 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
             showMore: total => `+${total} เพิ่มเติม`
           }}
         />
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-6 pt-4 border-t border-gray-200">
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-          <span className="text-sm text-gray-700">มีการจอง</span>
-        </div>
-        <div className="flex items-center">
-          <input 
-            type="checkbox" 
-            id="today-filter"
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer"
-            onChange={(e) => {
-              if (e.target.checked) {
-                const today = new Date()
-                setCurrentDate(today)
-                setView('month')
-              }
-            }}
-          />
-          <label htmlFor="today-filter" className="text-sm text-gray-700 cursor-pointer">วันนี้</label>
-        </div>
       </div>
 
       <BookingModal

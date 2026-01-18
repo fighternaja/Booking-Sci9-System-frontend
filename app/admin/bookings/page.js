@@ -191,13 +191,16 @@ export default function AdminBookingsPage() {
 
   const formatDateToThai = (dateString) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    const thaiMonths = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ]
+    const day = date.getDate()
+    const month = thaiMonths[date.getMonth()]
+    const year = date.getFullYear() + 543 // แปลงเป็น พ.ศ.
+    const hour = String(date.getHours()).padStart(2, '0')
+    const minute = String(date.getMinutes()).padStart(2, '0')
+    return `${day} ${month} ${year} ${hour}:${minute} น.`
   }
 
   const filteredBookings = bookings.filter(booking => {

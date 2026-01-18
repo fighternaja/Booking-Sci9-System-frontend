@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../../contexts/AuthContext'
-import { convertDDMMYYYYToISO, formatDateToDDMMYYYY, formatDateToThai } from '../../utils/dateUtils'
+import { convertDDMMYYYYToISO, formatDateToDDMMYYYY, formatDateToThai, formatDateToThaiWithDay } from '../../utils/dateUtils'
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState({
@@ -36,8 +36,8 @@ export default function AdminReportsPage() {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/rooms', { 
-        headers: { 'Accept': 'application/json' } 
+      const response = await fetch('http://127.0.0.1:8000/api/rooms', {
+        headers: { 'Accept': 'application/json' }
       })
       if (response.ok) {
         const contentType = response.headers.get('content-type')
@@ -59,7 +59,7 @@ export default function AdminReportsPage() {
   const fetchReports = async () => {
     try {
       setLoading(true)
-      
+
       // Prefer admin dashboard for accurate, authorized stats
       if (token) {
         try {
@@ -76,7 +76,7 @@ export default function AdminReportsPage() {
               const d = dashboardData.data
               const rooms = await fetchRooms()
               const bookings = Array.isArray(d.recent_bookings) ? d.recent_bookings : []
-              
+
               setReports(prev => ({
                 ...prev,
                 totalBookings: d.total_bookings ?? 0,
@@ -120,7 +120,7 @@ export default function AdminReportsPage() {
           bookings = bookingsData.data
         }
       }
-      
+
       setReports(prev => ({
         ...prev,
         totalRooms: rooms.length,
@@ -161,7 +161,7 @@ export default function AdminReportsPage() {
   // Analytics functions
   const calculateRoomUtilization = (bookings, rooms) => {
     if (!Array.isArray(rooms) || rooms.length === 0) return []
-    
+
     const utilization = rooms.map(room => {
       const roomBookings = bookings.filter(booking => booking.room_id === room.id)
       const totalHours = roomBookings.reduce((total, booking) => {
@@ -175,7 +175,7 @@ export default function AdminReportsPage() {
           return total
         }
       }, 0)
-      
+
       return {
         roomName: room.name || 'ไม่ระบุ',
         totalBookings: roomBookings.length,
@@ -183,18 +183,18 @@ export default function AdminReportsPage() {
         utilizationRate: Math.min(Math.round((totalHours / (7 * 13)) * 100), 100) // Cap at 100%
       }
     })
-    
+
     return utilization.sort((a, b) => b.totalHours - a.totalHours)
   }
 
   const calculateUserActivity = (bookings) => {
     if (!Array.isArray(bookings)) return []
-    
+
     const userStats = {}
     bookings.forEach(booking => {
       const userId = booking.user_id || booking.user?.id
       if (!userId) return
-      
+
       if (!userStats[userId]) {
         userStats[userId] = {
           userName: booking.user?.name || 'ไม่ระบุ',
@@ -210,25 +210,25 @@ export default function AdminReportsPage() {
         userStats[userId][statusKey]++
       }
     })
-    
+
     return Object.values(userStats).sort((a, b) => b.totalBookings - a.totalBookings)
   }
 
   const calculateBookingTrends = (bookings) => {
     if (!Array.isArray(bookings)) return []
-    
+
     const trends = {}
     bookings.forEach(booking => {
       try {
         const bookingDate = new Date(booking.start_time)
         if (isNaN(bookingDate.getTime())) return
-        
+
         const date = bookingDate.toISOString().split('T')[0]
         if (!trends[date]) {
           trends[date] = { date, total: 0, approved: 0, pending: 0, rejected: 0 }
         }
         trends[date].total++
-        
+
         const status = booking.status || 'pending'
         if (trends[date].hasOwnProperty(status)) {
           trends[date][status]++
@@ -237,7 +237,7 @@ export default function AdminReportsPage() {
         console.error('Error processing booking trend:', error)
       }
     })
-    
+
     return Object.values(trends).sort((a, b) => new Date(a.date) - new Date(b.date))
   }
 
@@ -246,92 +246,44 @@ export default function AdminReportsPage() {
     setExportLoading(true)
     try {
       const workbook = XLSX.utils.book_new()
-      
-      // Summary sheet
-      const summaryData = [
-        ['รายงานสถิติการใช้งานระบบจองห้อง'],
-        [`วันที่: ${formatDateToThai(new Date().toISOString())}`],
-        [`ช่วงวันที่: ${formatDateToDDMMYYYY(dateRange.startDate)} - ${formatDateToDDMMYYYY(dateRange.endDate)}`],
-        [''],
-        ['สถิติโดยรวม'],
-        ['การจองทั้งหมด', reports.totalBookings || 0],
-        ['อนุมัติแล้ว', reports.approvedBookings || 0],
-        ['รออนุมัติ', reports.pendingBookings || 0],
-        ['ปฏิเสธ', reports.rejectedBookings || 0],
-        ['ห้องทั้งหมด', reports.totalRooms || 0],
-        ['ผู้ใช้งาน', reports.totalUsers || 0]
-      ]
-      
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData)
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'สรุป')
-      
-      // Bookings sheet
+
+      // Bookings sheet - Simplified as requested
       if (reports.recentBookings && reports.recentBookings.length > 0) {
         const bookingData = [
-          ['ห้อง', 'ผู้จอง', 'วันที่เริ่มต้น', 'วันที่สิ้นสุด', 'สถานะ', 'วัตถุประสงค์']
+          ['ชื่อผู้จอง', 'ห้อง', 'เวลา', 'วันที่']
         ]
-        
+
         reports.recentBookings.forEach(booking => {
           try {
+            // Format time range e.g. "09:00 - 12:00"
+            const startTime = new Date(booking.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+            const endTime = new Date(booking.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+            const timeRange = `${startTime} - ${endTime}`
+
+            // Format date e.g. "18 มกราคม 2569"
+            const dateStr = formatDateToThai(booking.start_time)
+
             bookingData.push([
-              booking.room?.name || 'ไม่ระบุ',
-              booking.user?.name || 'ไม่ระบุ',
-              formatDateToThai(booking.start_time),
-              formatDateToThai(booking.end_time),
-              booking.status === 'approved' ? 'อนุมัติแล้ว' : 
-              booking.status === 'pending' ? 'รออนุมัติ' : 'ปฏิเสธ',
-              booking.purpose || 'ไม่ระบุ'
+              booking.user?.name || 'ไม่ระบุ',      // Name
+              booking.room?.name || 'ไม่ระบุ',      // Room
+              timeRange,                            // Time
+              dateStr                               // Date
             ])
           } catch (error) {
             console.error('Error processing booking for export:', error)
           }
         })
-        
+
         const bookingSheet = XLSX.utils.aoa_to_sheet(bookingData)
-        XLSX.utils.book_append_sheet(workbook, bookingSheet, 'การจอง')
+        XLSX.utils.book_append_sheet(workbook, bookingSheet, 'รายชื่อการจอง')
       }
-      
-      // Room utilization sheet
-      if (reports.roomUtilization && reports.roomUtilization.length > 0) {
-        const utilizationData = [
-          ['ห้อง', 'จำนวนการจอง', 'ชั่วโมงรวม', 'อัตราการใช้งาน (%)']
-        ]
-        
-        reports.roomUtilization.forEach(room => {
-          utilizationData.push([
-            room.roomName || 'ไม่ระบุ',
-            room.totalBookings || 0,
-            room.totalHours || 0,
-            room.utilizationRate || 0
-          ])
-        })
-        
-        const utilizationSheet = XLSX.utils.aoa_to_sheet(utilizationData)
-        XLSX.utils.book_append_sheet(workbook, utilizationSheet, 'การใช้งานห้อง')
-      }
-      
-      // Booking trends sheet
-      if (reports.bookingTrends && reports.bookingTrends.length > 0) {
-        const trendsData = [
-          ['วันที่', 'รวม', 'อนุมัติ', 'รออนุมัติ', 'ปฏิเสธ', 'อัตราการอนุมัติ (%)']
-        ]
-        
-        reports.bookingTrends.forEach(trend => {
-          const approvalRate = trend.total > 0 ? Math.round((trend.approved / trend.total) * 100) : 0
-          trendsData.push([
-            formatDateToThai(trend.date),
-            trend.total || 0,
-            trend.approved || 0,
-            trend.pending || 0,
-            trend.rejected || 0,
-            approvalRate
-          ])
-        })
-        
-        const trendsSheet = XLSX.utils.aoa_to_sheet(trendsData)
-        XLSX.utils.book_append_sheet(workbook, trendsSheet, 'แนวโน้มการจอง')
-      }
-      
+
+      // Removed other sheets (Summary, Utilization, Trends) as per request for "only Name, Room, Time, Date" implies a clean single list.
+
+      // Room utilization removed
+
+      // Sheets removed as per request
+
       XLSX.writeFile(workbook, `รายงานการจองห้อง_${new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {
       console.error('Error exporting to Excel:', error)
@@ -340,12 +292,6 @@ export default function AdminReportsPage() {
       setExportLoading(false)
     }
   }
-
-  const exportToPDF = () => {
-    // Simple PDF export using browser print
-    window.print()
-  }
-
 
   if (loading) {
     return (
@@ -370,7 +316,7 @@ export default function AdminReportsPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">📈 รายงาน</h1>
         <p className="text-gray-600 mb-6">รายงานสถิติการใช้งานระบบจองห้อง</p>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น:</label>
@@ -431,7 +377,7 @@ export default function AdminReportsPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-4 mb-6">
           <button
             onClick={fetchReports}
@@ -463,15 +409,6 @@ export default function AdminReportsPage() {
                 ส่งออก Excel
               </>
             )}
-          </button>
-          <button
-            onClick={exportToPDF}
-            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            ส่งออก PDF
           </button>
         </div>
       </div>
@@ -579,7 +516,7 @@ export default function AdminReportsPage() {
                     <span className="text-sm text-gray-600">{room.utilizationRate}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(room.utilizationRate, 100)}%` }}
                     ></div>
@@ -650,7 +587,7 @@ export default function AdminReportsPage() {
                   <div className="ml-3">
                     <p className="text-sm font-medium text-blue-600">การจองเฉลี่ยต่อวัน</p>
                     <p className="text-2xl font-bold text-blue-900">
-                      {reports.bookingTrends.length > 0 
+                      {reports.bookingTrends.length > 0
                         ? Math.round(reports.bookingTrends.reduce((sum, trend) => sum + (trend.total || 0), 0) / reports.bookingTrends.length)
                         : 0
                       }
@@ -689,7 +626,7 @@ export default function AdminReportsPage() {
                   <div className="ml-3">
                     <p className="text-sm font-medium text-orange-600">วันที่มีการจองมากที่สุด</p>
                     <p className="text-lg font-bold text-orange-900">
-                      {reports.bookingTrends.length > 0 
+                      {reports.bookingTrends.length > 0
                         ? Math.max(...reports.bookingTrends.map(t => t.total || 0))
                         : 0
                       } การจอง
@@ -709,11 +646,11 @@ export default function AdminReportsPage() {
                     const trendApproved = trend.approved || 0
                     const trendPending = trend.pending || 0
                     const trendRejected = trend.rejected || 0
-                    
+
                     const maxTotal = Math.max(...reports.bookingTrends.slice(0, 7).map(t => t.total || 0))
                     const height = maxTotal > 0 ? (trendTotal / maxTotal) * 280 : 0
                     const isToday = new Date(trend.date).toDateString() === new Date().toDateString()
-                    
+
                     return (
                       <div key={index} className="flex flex-col items-center flex-1 group">
                         <div className="relative w-full flex flex-col items-center">
@@ -721,28 +658,28 @@ export default function AdminReportsPage() {
                           <div className="w-full max-w-16 h-80 flex flex-col justify-end">
                             <div className="w-full flex flex-col space-y-0.5">
                               {trendApproved > 0 && trendTotal > 0 && (
-                                <div 
+                                <div
                                   className="bg-gradient-to-t from-green-600 to-green-400 rounded-t-lg transition-all duration-300 hover:from-green-700 hover:to-green-500 cursor-pointer"
                                   style={{ height: `${(trendApproved / trendTotal) * height}px` }}
                                   title={`อนุมัติแล้ว: ${trendApproved} การจอง`}
                                 ></div>
                               )}
                               {trendPending > 0 && trendTotal > 0 && (
-                                <div 
+                                <div
                                   className="bg-gradient-to-t from-yellow-500 to-yellow-300 transition-all duration-300 hover:from-yellow-600 hover:to-yellow-400 cursor-pointer"
                                   style={{ height: `${(trendPending / trendTotal) * height}px` }}
                                   title={`รออนุมัติ: ${trendPending} การจอง`}
                                 ></div>
                               )}
                               {trendRejected > 0 && trendTotal > 0 && (
-                                <div 
+                                <div
                                   className="bg-gradient-to-t from-red-600 to-red-400 rounded-b-lg transition-all duration-300 hover:from-red-700 hover:to-red-500 cursor-pointer"
                                   style={{ height: `${(trendRejected / trendTotal) * height}px` }}
                                   title={`ปฏิเสธ: ${trendRejected} การจอง`}
                                 ></div>
                               )}
                               {trendTotal === 0 && (
-                                <div 
+                                <div
                                   className="bg-gray-200 rounded transition-all duration-300 hover:bg-gray-300 cursor-pointer"
                                   style={{ height: '20px' }}
                                   title="ไม่มีข้อมูลการจอง"
@@ -750,18 +687,14 @@ export default function AdminReportsPage() {
                               )}
                             </div>
                           </div>
-                          
+
                           {/* Day Info */}
                           <div className="mt-3 text-center">
                             <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
                               {trendTotal}
                             </div>
                             <div className={`text-xs ${isToday ? 'text-blue-500 font-medium' : 'text-gray-500'}`}>
-                              {new Date(trend.date).toLocaleDateString('th-TH', { 
-                                weekday: 'short',
-                                day: '2-digit', 
-                                month: '2-digit' 
-                              })}
+                              {formatDateToThaiWithDay(new Date(trend.date))}
                             </div>
                             {isToday && (
                               <div className="text-xs text-blue-500 font-medium">วันนี้</div>
@@ -773,7 +706,7 @@ export default function AdminReportsPage() {
                   })}
                 </div>
               </div>
-              
+
               {/* Chart Legend */}
               <div className="flex justify-center space-x-8 mt-6">
                 <div className="flex items-center space-x-2">
@@ -810,7 +743,7 @@ export default function AdminReportsPage() {
                     {reports.bookingTrends.slice(0, 7).map((trend, index) => {
                       const approvalRate = trend.total > 0 ? Math.round((trend.approved / trend.total) * 100) : 0
                       const isToday = new Date(trend.date).toDateString() === new Date().toDateString()
-                      
+
                       return (
                         <tr key={index} className={isToday ? 'bg-blue-50' : 'hover:bg-gray-50'}>
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -838,10 +771,9 @@ export default function AdminReportsPage() {
                             <span className="text-sm font-semibold text-red-600">{trend.rejected}</span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-center">
-                            <span className={`text-sm font-semibold ${
-                              approvalRate >= 80 ? 'text-green-600' : 
+                            <span className={`text-sm font-semibold ${approvalRate >= 80 ? 'text-green-600' :
                               approvalRate >= 60 ? 'text-yellow-600' : 'text-red-600'
-                            }`}>
+                              }`}>
                               {approvalRate}%
                             </span>
                           </td>

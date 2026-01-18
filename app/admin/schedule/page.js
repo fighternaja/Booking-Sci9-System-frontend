@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../../contexts/AuthContext'
+import { formatDateToThaiShort } from '../../utils/dateUtils'
 
 export default function AdminSchedulePage() {
   const [rooms, setRooms] = useState([])
@@ -55,13 +56,13 @@ export default function AdminSchedulePage() {
           'Authorization': `Bearer ${token}`
         }
       })
-      
+
       if (response.status === 401) {
         logout()
         router.push('/login')
         return
       }
-      
+
       if (response.ok) {
         const contentType = response.headers.get('content-type')
         if (contentType && contentType.includes('application/json')) {
@@ -75,7 +76,7 @@ export default function AdminSchedulePage() {
           }
         }
       }
-      
+
       // Mock data fallback
       const mockRooms = [
         { id: 1, name: 'Sci9 201(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 1' },
@@ -94,7 +95,7 @@ export default function AdminSchedulePage() {
       setRooms(mockRooms)
       setApiError(true)
       setErrorMessage('ไม่สามารถเชื่อมต่อกับ API ได้ กำลังใช้ข้อมูลจำลอง')
-      
+
     } catch (error) {
       console.error('Error fetching rooms:', error)
       setApiError(true)
@@ -231,7 +232,7 @@ export default function AdminSchedulePage() {
       const section = row[columnIndices.section] || ''
       const location = row[columnIndices.location] || ''
       const purpose = row[columnIndices.purpose] || ''
-      
+
       // Create display text like "COM 2602" for purpose, "51" for section, "L201" for location
       const displayPurpose = purpose || 'การจอง'
       const displaySection = section || 'ไม่ระบุ'
@@ -350,7 +351,15 @@ export default function AdminSchedulePage() {
   }
 
   const formatThaiDate = (d) => {
-    return d.toLocaleDateString('th-TH', { weekday: 'short', day: '2-digit', month: 'short' })
+    const thaiDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+    const thaiMonthsShort = [
+      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+    ]
+    const dayName = thaiDays[d.getDay()]
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = thaiMonthsShort[d.getMonth()]
+    return `${dayName} ${day} ${month}`
   }
 
   const getThaiDayAbbr = (day) => {
@@ -518,7 +527,7 @@ export default function AdminSchedulePage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">ตารางการใช้ห้อง</h1>
         <p className="text-gray-600 mb-6">ศูนย์/สถานศึกษา แม่ริม อาคารคอมพิวเตอร์</p>
-        
+
         {/* Controls Section */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
@@ -538,13 +547,13 @@ export default function AdminSchedulePage() {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">คุณลักษณะ</label>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">ปีการศึกษา</span>
-                    <select 
+                    <select
                       value={academicYear}
                       onChange={(e) => setAcademicYear(e.target.value)}
                       className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -554,35 +563,32 @@ export default function AdminSchedulePage() {
                       <option value="2569">2569</option>
                     </select>
                   </div>
-                  
+
                   <div className="flex space-x-1">
-                    <button 
+                    <button
                       onClick={() => setSelectedSemester(1)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${
-                        selectedSemester === 1 
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105' 
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 1
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
                           : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
-                      }`}
+                        }`}
                     >
                       1
                     </button>
-                    <button 
+                    <button
                       onClick={() => setSelectedSemester(2)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${
-                        selectedSemester === 2 
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105' 
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 2
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
                           : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
-                      }`}
+                        }`}
                     >
                       2
                     </button>
-                    <button 
+                    <button
                       onClick={() => setSelectedSemester(3)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${
-                        selectedSemester === 3 
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105' 
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 3
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
                           : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
-                      }`}
+                        }`}
                     >
                       3
                     </button>
@@ -590,29 +596,29 @@ export default function AdminSchedulePage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => {
-                      const currentDate = new Date(selectedDate)
-                      const prevWeek = new Date(currentDate)
-                      prevWeek.setDate(currentDate.getDate() - 7)
-                      const newDate = prevWeek.toISOString().split('T')[0]
-                      console.log('Moving to previous week:', newDate)
-                      setSelectedDate(newDate)
-                    }}
-                    className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
-                    title="สัปดาห์ก่อนหน้า"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                
+                <button
+                  onClick={() => {
+                    const currentDate = new Date(selectedDate)
+                    const prevWeek = new Date(currentDate)
+                    prevWeek.setDate(currentDate.getDate() - 7)
+                    const newDate = prevWeek.toISOString().split('T')[0]
+                    console.log('Moving to previous week:', newDate)
+                    setSelectedDate(newDate)
+                  }}
+                  className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
+                  title="สัปดาห์ก่อนหน้า"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
                 <div className="text-center">
                   <div className="text-sm font-medium text-gray-900">
-                    ระหว่าง {weekStart.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    ระหว่าง {formatDateToThaiShort(weekStart)} - {formatDateToThaiShort(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
                   </div>
                   <button
                     onClick={() => {
@@ -624,25 +630,25 @@ export default function AdminSchedulePage() {
                     กลับไปสัปดาห์นี้
                   </button>
                 </div>
-                
-                  <button
-                    onClick={() => {
-                      const currentDate = new Date(selectedDate)
-                      const nextWeek = new Date(currentDate)
-                      nextWeek.setDate(currentDate.getDate() + 7)
-                      const newDate = nextWeek.toISOString().split('T')[0]
-                      console.log('Moving to next week:', newDate)
-                      setSelectedDate(newDate)
-                    }}
-                    className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
-                    title="สัปดาห์ถัดไป"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+
+                <button
+                  onClick={() => {
+                    const currentDate = new Date(selectedDate)
+                    const nextWeek = new Date(currentDate)
+                    nextWeek.setDate(currentDate.getDate() + 7)
+                    const newDate = nextWeek.toISOString().split('T')[0]
+                    console.log('Moving to next week:', newDate)
+                    setSelectedDate(newDate)
+                  }}
+                  className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
+                  title="สัปดาห์ถัดไป"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
-              
+
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105"
@@ -698,7 +704,7 @@ export default function AdminSchedulePage() {
                           <div className="flex flex-col items-center">
                             <span>{getThaiDayAbbr(day)}</span>
                             <span className="text-xs font-normal">
-                              {day.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' })}
+                              {String(day.getDate()).padStart(2, '0')}/{String(day.getMonth() + 1).padStart(2, '0')}
                             </span>
                             {isToday && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded mt-1">วันนี้</span>}
                           </div>
@@ -763,16 +769,16 @@ export default function AdminSchedulePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                     <p className="text-red-800">{importError}</p>
-          </div>
-        </div>
-      )}
+                  </div>
+                </div>
+              )}
 
               {importedData.length > 0 && (
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-3">
                     พบข้อมูล {importedData.length} รายการที่สามารถนำเข้าได้
                   </p>
-                  
+
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
@@ -803,14 +809,14 @@ export default function AdminSchedulePage() {
                       และอีก {importedData.length - 10} รายการ...
                     </p>
                   )}
-        </div>
-      )}
+                </div>
+              )}
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <div className="flex items-start">
                   <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+                  </svg>
                   <div>
                     <h4 className="text-sm font-medium text-blue-800">รูปแบบไฟล์ Excel ที่รองรับ</h4>
                     <p className="text-sm text-blue-700 mt-1">

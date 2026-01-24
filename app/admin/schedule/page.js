@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
+import Swal from 'sweetalert2'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDateToThaiShort } from '../../utils/dateUtils'
 
@@ -209,13 +210,28 @@ export default function AdminSchedulePage() {
     }
 
     const columnIndices = {}
+    let headersFound = false
+
     headers.forEach((header, index) => {
       Object.keys(expectedHeaders).forEach(key => {
-        if (expectedHeaders[key].some(h => header.toLowerCase().includes(h.toLowerCase()))) {
+        if (typeof header === 'string' && expectedHeaders[key].some(h => header.toLowerCase().includes(h.toLowerCase()))) {
           columnIndices[key] = index
+          headersFound = true
         }
       })
     })
+
+    // Fallback to positional mapping if few headers found
+    if (!headersFound || Object.keys(columnIndices).length < 2) {
+      // Assume order: Room, User, Start, End, Purpose, Notes
+      columnIndices['room_name'] = 0
+      columnIndices['user_name'] = 1
+      columnIndices['start_time'] = 2
+      columnIndices['end_time'] = 3
+      columnIndices['purpose'] = 4
+      columnIndices['notes'] = 5
+      // Section and Location optional/missing in basic fallback
+    }
 
     const roomLookup = new Map(
       rooms.map(r => [normalizeRoomName(r.name), r])
@@ -233,49 +249,118 @@ export default function AdminSchedulePage() {
       const location = row[columnIndices.location] || ''
       const purpose = row[columnIndices.purpose] || ''
 
-      // Create display text like "COM 2602" for purpose, "51" for section, "L201" for location
       const displayPurpose = purpose || 'การจอง'
       const displaySection = section || 'ไม่ระบุ'
       const displayLocation = location || 'ไม่ระบุ'
 
       const item = {
         id: `import_${index + 1}`,
-        room_name: rawRoom || '',
-        user_name: row[columnIndices.user_name] || '',
-        start_time: startIso,
-        end_time: endIso,
+        room_name: rawRoom || 'ห้องระบุไม่ได้', // Default text if missing
+        user_name: row[columnIndices.user_name] || 'ไม่ระบุ',
+        start_time: startIso || new Date().toISOString(), // Fallback to now if invalid
+        end_time: endIso || new Date().toISOString(),
         purpose: displayPurpose,
         section: displaySection,
         location: displayLocation,
         notes: row[columnIndices.notes] || '',
         status: 'pending',
         is_imported: true,
-        room_id: matchedRoom?.id || null
+        room_id: matchedRoom?.id || null // Keep null if not found
       }
       return item
-    }).filter(item => item.room_name && item.user_name && item.start_time && item.end_time)
+    }).filter(item => item.start_time && item.end_time) // Minimal filter
 
     return processedData
   }
 
   const handleImportConfirm = async () => {
-    if (importedData.length === 0) return
+    if (importedData.length === 0) {
+      Swal.fire({
+        title: 'ไม่พบข้อมูล',
+        text: 'กรุณาเลือกไฟล์ Excel ที่มีข้อมูลถูกต้อง',
+        icon: 'warning',
+        confirmButtonColor: '#3B82F6',
+        confirmButtonText: 'ตกลง'
+      })
+      return
+    }
+
+    // Bypass room_id validation as requested
+    const validData = importedData // .filter(item => item.room_id)
+
+    // Remove the blocking check for validData.length === 0 relative to importedData.length
+    // if (validData.length === 0) ... (Removed)
+
+    // Just warn if room_id is missing but proceed if user confirms? 
+    // Actually user said "without checking anything". So we just proceed.
+
+    // (Optional: We could show a simple confirmation if we want, but user said "fix it" meaning "make it work")
 
     setImportLoading(true)
-    try {
-      const newBookings = importedData.map(item => ({
-        ...item,
-        id: Date.now() + Math.random(),
-        room: { name: item.room_name, location: '' },
-        user: { name: item.user_name, email: '' }
-      }))
+    setImportError('')
 
-      setBookings(prev => [...prev, ...newBookings])
-      setShowImportModal(false)
-      setImportedData([])
+    try {
+      const payload = {
+        bookings: validData.map(item => ({
+          room_id: item.room_id,
+          room_name: item.room_name, // Send name for backend lookup if ID missing
+          start_time: item.start_time,
+          end_time: item.end_time,
+          purpose: item.purpose,
+          user_name: item.user_name,
+          notes: item.notes
+        }))
+      }
+
+      const response = await fetch('http://127.0.0.1:8000/api/admin/bookings/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        await fetchData() // Refresh bookings
+        setShowImportModal(false)
+        setImportedData([])
+
+        let message = `นำเข้าสำเร็จ ${data.data.imported_count} รายการ`
+        if (data.data.errors && data.data.errors.length > 0) {
+          message += `<br><br><small class="text-red-500">พบข้อผิดพลาดบางรายการ:</small><br><div class="text-left text-xs bg-gray-50 p-2 rounded mt-2 max-h-32 overflow-y-auto">${data.data.errors.map(e => `• ${e}`).join('<br>')}</div>`
+        }
+
+        Swal.fire({
+          title: 'นำเข้าข้อมูลสำเร็จ',
+          html: message,
+          icon: 'success',
+          confirmButtonColor: '#3B82F6',
+          confirmButtonText: 'ตกลง'
+        })
+      } else {
+        setImportError(data.message || 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล')
+        Swal.fire({
+          title: 'เกิดข้อผิดพลาด',
+          text: data.message || 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล',
+          icon: 'error',
+          confirmButtonColor: '#3B82F6',
+          confirmButtonText: 'ตกลง'
+        })
+      }
     } catch (error) {
       console.error('Error importing data:', error)
-      setImportError('เกิดข้อผิดพลาดในการนำเข้าข้อมูล')
+      setImportError('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์')
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
+        icon: 'error',
+        confirmButtonColor: '#3B82F6',
+        confirmButtonText: 'ตกลง'
+      })
     } finally {
       setImportLoading(false)
     }
@@ -568,8 +653,8 @@ export default function AdminSchedulePage() {
                     <button
                       onClick={() => setSelectedSemester(1)}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 1
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
-                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
                         }`}
                     >
                       1
@@ -577,8 +662,8 @@ export default function AdminSchedulePage() {
                     <button
                       onClick={() => setSelectedSemester(2)}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 2
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
-                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
                         }`}
                     >
                       2
@@ -586,8 +671,8 @@ export default function AdminSchedulePage() {
                     <button
                       onClick={() => setSelectedSemester(3)}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 3
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
-                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
                         }`}
                     >
                       3
@@ -761,7 +846,7 @@ export default function AdminSchedulePage() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="p-6">
               {importError && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-center">
@@ -773,71 +858,84 @@ export default function AdminSchedulePage() {
                 </div>
               )}
 
-              {importedData.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-3">
-                    พบข้อมูล {importedData.length} รายการที่สามารถนำเข้าได้
-                  </p>
-
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้อง</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้จอง</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เริ่มต้น</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สิ้นสุด</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วัตถุประสงค์</th>
+              {importedData.length > 0 ? (
+                <div className="overflow-x-auto border rounded-lg max-h-[60vh] mt-4">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้อง</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้จอง</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เวลา</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {importedData.map((item, index) => (
+                        <tr key={index} className={!item.room_id ? 'bg-red-50' : ''}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {item.room_name}
+                            {!item.room_id && <div className="text-red-500 text-xs mt-1">(ไม่พบห้องนี้ในระบบ)</div>}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.user_name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>{formatDateToThaiShort(new Date(item.start_time))}</div>
+                            <div className="text-xs text-gray-400">
+                              {new Date(item.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} -
+                              {new Date(item.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="font-medium">{item.purpose}</div>
+                            {item.section && <div className="text-xs">Sec: {item.section}</div>}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {item.room_id ? (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                พร้อมนำเข้า
+                              </span>
+                            ) : (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                ข้อมูลผิดพลาด
+                              </span>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {importedData.slice(0, 10).map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-sm text-gray-900">{item.room_name}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{item.user_name}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{item.start_time}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{item.end_time}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{item.purpose}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 flex items-start">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
-
-                  {importedData.length > 10 && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      และอีก {importedData.length - 10} รายการ...
-                    </p>
-                  )}
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-900">รูปแบบไฟล์ Excel ที่รองรับ</h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>รองรับไฟล์ Excel ที่มีหัวข้อคอลัมน์ หรือไฟล์ที่ไม่มีหัวข้อ (เรียงลำดับ: ชื่อห้อง, ผู้จอง, เวลาเริ่ม, เวลาสิ้นสุด, วัตถุประสงค์)</p>
+                      <p className="mt-1 text-xs text-blue-600">
+                        * ระบบจะสร้างห้องให้อัตโนมัติหากไม่พบข้อมูล และปรับเวลาให้อัตโนมัติหากไม่ถูกต้อง
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <div className="flex items-start">
-                  <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-800">รูปแบบไฟล์ Excel ที่รองรับ</h4>
-                    <p className="text-sm text-blue-700 mt-1">
-                      ไฟล์ต้องมีคอลัมน์: ชื่อห้อง, ชื่อผู้จอง, วันที่เริ่มต้น, วันที่สิ้นสุด, วัตถุประสงค์, หมายเหตุ
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleImportConfirm}
-                disabled={importLoading || importedData.length === 0}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors"
+                disabled={importLoading}
+                className="px-6 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importLoading ? 'กำลังนำเข้า...' : 'ยืนยันการนำเข้า'}
               </button>

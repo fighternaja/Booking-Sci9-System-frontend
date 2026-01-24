@@ -8,7 +8,12 @@ import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
+import { usePathname } from 'next/navigation'
+
 export default function RootLayout({ children }) {
+  const pathname = usePathname()
+  const isAdminPage = pathname?.startsWith('/admin')
+
   return (
     <html lang="th">
       <body className={inter.className}>
@@ -17,7 +22,7 @@ export default function RootLayout({ children }) {
           <main className="min-h-screen">
             {children}
           </main>
-          <Footer />
+          {!isAdminPage && <Footer />}
         </AuthProvider>
       </body>
     </html>

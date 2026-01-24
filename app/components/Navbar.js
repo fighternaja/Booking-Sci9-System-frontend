@@ -38,8 +38,8 @@ export default function Navbar() {
 
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled
-        ? 'bg-white/80 backdrop-blur-md shadow-lg border-b border-gray-100'
-        : 'bg-white/0'
+      ? 'bg-white/80 backdrop-blur-md shadow-lg border-b border-gray-100'
+      : 'bg-white/0'
       }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20">
@@ -75,8 +75,8 @@ export default function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${scrolled
-                    ? 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
-                    : 'text-gray-700 hover:text-blue-600 hover:bg-white/50'
+                  ? 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                  : 'text-gray-700 hover:text-blue-600 hover:bg-white/50'
                   }`}
               >
                 {item.name}
@@ -95,8 +95,8 @@ export default function Navbar() {
                   <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={`flex items-center space-x-2 p-1.5 rounded-full transition-all duration-300 border-2 ${scrolled
-                        ? 'border-transparent hover:border-blue-100 bg-gray-50 hover:bg-blue-50'
-                        : 'border-transparent hover:border-white/50 bg-white/50 hover:bg-white/80'
+                      ? 'border-transparent hover:border-blue-100 bg-gray-50 hover:bg-blue-50'
+                      : 'border-transparent hover:border-white/50 bg-white/50 hover:bg-white/80'
                       }`}
                   >
                     <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center overflow-hidden shadow-inner font-bold text-blue-600">
@@ -174,8 +174,8 @@ export default function Navbar() {
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className={`p-2 rounded-xl transition-all duration-300 ${scrolled
-                    ? 'text-gray-600 hover:bg-gray-100'
-                    : 'text-gray-800 hover:bg-white/50'
+                  ? 'text-gray-600 hover:bg-gray-100'
+                  : 'text-gray-800 hover:bg-white/50'
                   }`}
               >
                 <span className="sr-only">Open main menu</span>

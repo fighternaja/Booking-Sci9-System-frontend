@@ -352,44 +352,42 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
   if (!isOpen || !booking) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <div className="fixed inset-0 bg-white/10 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 transform transition-all scale-100">
+        <div className="p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">เลื่อนจองห้อง</h2>
-              <p className="text-gray-600 mt-1">
-                {booking.room?.name || 'ห้อง'}
-              </p>
-            </div>
+          <div className="text-center mb-8 relative">
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="absolute top-0 right-0 p-2 text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">เลื่อนจองห้อง</h2>
+            <p className="text-gray-500 text-sm">
+              {booking.room?.name || 'Sci9 204(COM)'}
+            </p>
           </div>
 
-          {/* Current Booking Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h4 className="font-semibold text-blue-900 mb-2">ข้อมูลการจองปัจจุบัน</h4>
+          {/* Current Booking Info Box */}
+          <div className="bg-blue-50/50 rounded-2xl p-5 mb-8">
+            <h4 className="font-semibold text-blue-900 text-sm mb-3">ข้อมูลการจองปัจจุบัน</h4>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-blue-700">วันที่:</span>
-                <span className="text-blue-900">{formatDate(booking.start_time)}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-blue-600/80">วันที่:</span>
+                <span className="text-blue-900 font-medium">{formatDate(booking.start_time)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">เวลา:</span>
-                <span className="text-blue-900">
+              <div className="flex justify-between items-center">
+                <span className="text-blue-600/80">เวลา:</span>
+                <span className="text-blue-900 font-medium">
                   {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">วัตถุประสงค์:</span>
-                <span className="text-blue-900">{booking.purpose}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-blue-600/80">วัตถุประสงค์:</span>
+                <span className="text-blue-900 font-medium">{booking.purpose}</span>
               </div>
             </div>
           </div>
@@ -397,22 +395,24 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
           {/* Reschedule Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-900 mb-1">วันที่</label>
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
+              <label htmlFor="date" className="block text-sm font-semibold text-gray-700 mb-2">วันที่</label>
+              <div className="relative">
+                <input
+                  type="date"
+                  id="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-700"
+                  required
+                />
+              </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="start_time" className="block text-sm font-medium text-gray-900 mb-1">เวลาเริ่มต้น</label>
+                <label htmlFor="start_time" className="block text-sm font-semibold text-gray-700 mb-2">เวลาเริ่มต้น</label>
                 <input
                   type="time"
                   id="start_time"
@@ -421,13 +421,13 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
                   onChange={handleChange}
                   min="08:00"
                   max="17:59"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-700"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="end_time" className="block text-sm font-medium text-gray-900 mb-1">เวลาสิ้นสุด</label>
+                <label htmlFor="end_time" className="block text-sm font-semibold text-gray-700 mb-2">เวลาสิ้นสุด</label>
                 <input
                   type="time"
                   id="end_time"
@@ -436,62 +436,65 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
                   onChange={handleChange}
                   min="08:00"
                   max="18:00"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-700"
                   required
                 />
               </div>
             </div>
 
             {/* Availability Status */}
-            {availability !== null && (
-              <div className="p-4 rounded-lg border">
-                {availability.is_available ? (
-                  <div className="flex items-center text-green-700">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="font-medium">ห้องว่าง สามารถเลื่อนจองได้</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center text-red-700">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <span className="font-medium">ห้องไม่ว่างในช่วงเวลานี้</span>
-                  </div>
-                )}
+            {availability !== null && availability.is_available && (
+              <div className="p-4 rounded-xl border border-green-100 bg-green-50/50 flex items-center text-green-700 animate-fade-in-up">
+                <div className="w-5 h-5 mr-3 flex items-center justify-center bg-green-100 rounded-full">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="font-medium text-sm">ห้องว่าง สามารถเลื่อนจองได้</span>
+              </div>
+            )}
+
+            {availability !== null && !availability.is_available && (
+              <div className="p-4 rounded-xl border border-red-100 bg-red-50/50 flex items-center text-red-700 animate-fade-in-up">
+                <div className="w-5 h-5 mr-3 flex items-center justify-center bg-red-100 rounded-full">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <span className="font-medium text-sm">ห้องไม่ว่างในช่วงเวลานี้</span>
               </div>
             )}
 
             {checkingAvailability && (
-              <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-                <div className="flex items-center text-blue-700">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                  <span className="text-sm">กำลังตรวจสอบความพร้อม...</span>
-                </div>
+              <div className="p-4 rounded-xl bg-gray-50 flex items-center text-gray-500">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-blue-600 mr-3"></div>
+                <span className="text-sm">กำลังตรวจสอบ...</span>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm flex items-start">
+                <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
               </div>
             )}
 
-            <div className="flex space-x-4 pt-4">
+            <div className="flex gap-4 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="flex-1 px-6 py-3.5 border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
                 disabled={loading || !formData.start_time || !formData.end_time || !formData.date || (availability && !availability.is_available)}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-6 py-3.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all duration-200"
               >
-                {loading ? 'กำลังเลื่อนจอง...' : 'ยืนยันการเลื่อนจอง'}
+                {loading ? 'กำลังบันทึก...' : 'ยืนยันการเลื่อนจอง'}
               </button>
             </div>
           </form>

@@ -10,6 +10,15 @@ export default function AdminDashboard() {
     total_rooms: 0,
     total_bookings: 0,
     pending_bookings: 0,
+    approved_bookings: 0,
+    rejected_bookings: 0,
+    cancelled_bookings: 0,
+    total_users: 0,
+    today_bookings: 0,
+    week_bookings: 0,
+    month_bookings: 0,
+    most_used_rooms: [],
+    top_users: [],
     recent_bookings: []
   })
   const [bookings, setBookings] = useState([])
@@ -63,7 +72,56 @@ export default function AdminDashboard() {
       const data = await response.json()
 
       if (data.success) {
-        setDashboardData(data.data)
+        // Calculate additional statistics from bookings
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        const monthAgo = new Date(today)
+        monthAgo.setMonth(monthAgo.getMonth() - 1)
+
+        // Get all bookings for calculations
+        const allBookings = bookings || []
+        const todayBookings = allBookings.filter(b => {
+          const bookingDate = new Date(b.start_time)
+          bookingDate.setHours(0, 0, 0, 0)
+          return bookingDate.getTime() === today.getTime()
+        })
+        const weekBookings = allBookings.filter(b => new Date(b.start_time) >= weekAgo)
+        const monthBookings = allBookings.filter(b => new Date(b.start_time) >= monthAgo)
+
+        // Calculate most used rooms
+        const roomUsage = {}
+        allBookings.forEach(b => {
+          if (b.room && b.room.name) {
+            roomUsage[b.room.name] = (roomUsage[b.room.name] || 0) + 1
+          }
+        })
+        const mostUsedRooms = Object.entries(roomUsage)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+
+        // Calculate top users
+        const userBookings = {}
+        allBookings.forEach(b => {
+          if (b.user && b.user.name) {
+            userBookings[b.user.name] = (userBookings[b.user.name] || 0) + 1
+          }
+        })
+        const topUsers = Object.entries(userBookings)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+
+        setDashboardData({
+          ...data.data,
+          today_bookings: todayBookings.length,
+          week_bookings: weekBookings.length,
+          month_bookings: monthBookings.length,
+          most_used_rooms: mostUsedRooms,
+          top_users: topUsers
+        })
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -241,76 +299,233 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-10">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">ภาพรวมระบบการจองห้องประชุม</p>
+      {/* Hero Stats Section */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-xl mb-10 p-8 text-white">
+        {/* Decorative Background Elements */}
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl"></div>
+
+        <div className="relative z-10 text-center mb-10">
+          <div className="inline-flex items-center justify-center p-3 bg-white/10 backdrop-blur-md rounded-2xl mb-4 shadow-lg ring-1 ring-white/20">
+            <span className="text-3xl mr-2">📊</span>
+            <h1 className="text-2xl font-bold text-white tracking-wide">สถิติการใช้งาน</h1>
+          </div>
+          <p className="text-blue-100 font-light text-lg">ข้อมูลการใช้งานระบบจองห้อง</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-500">Last updated: {new Date().toLocaleTimeString('th-TH')}</span>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Rooms */}
+          <div className="group bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-inner ring-1 ring-white/10 group-hover:scale-110 transition-transform">
+                🏢
+              </div>
+              <h3 className="text-4xl font-bold mb-2 text-white">{dashboardData.total_rooms}</h3>
+              <p className="text-sm font-medium text-blue-100 uppercase tracking-wider">ห้องทั้งหมด</p>
+            </div>
+          </div>
+
+          {/* Bookings */}
+          <div className="group bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-inner ring-1 ring-white/10 group-hover:scale-110 transition-transform">
+                📅
+              </div>
+              <h3 className="text-4xl font-bold mb-2 text-white">{dashboardData.total_bookings}</h3>
+              <p className="text-sm font-medium text-blue-100 uppercase tracking-wider">การจองทั้งหมด</p>
+            </div>
+          </div>
+
+          {/* Pending */}
+          <div className="group bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-inner ring-1 ring-white/10 group-hover:scale-110 transition-transform">
+                ⏳
+              </div>
+              <h3 className="text-4xl font-bold mb-2 text-white">{dashboardData.pending_bookings}</h3>
+              <p className="text-sm font-medium text-blue-100 uppercase tracking-wider">รออนุมัติ</p>
+            </div>
+          </div>
+
+          {/* Users */}
+          <div className="group bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-inner ring-1 ring-white/10 group-hover:scale-110 transition-transform">
+                👥
+              </div>
+              <h3 className="text-4xl font-bold mb-2 text-white">{dashboardData.total_users || 0}</h3>
+              <p className="text-sm font-medium text-blue-100 uppercase tracking-wider">ผู้ใช้งาน</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        {/* Rooms */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">ห้องทั้งหมด</p>
-              <h3 className="text-3xl font-bold text-gray-900">{dashboardData.total_rooms}</h3>
+      {/* Time-based Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-600">วันนี้</h3>
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <span className="text-xl">📅</span>
             </div>
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{dashboardData.today_bookings}</p>
+          <p className="text-sm text-gray-500 mt-1">การจองวันนี้</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-600">สัปดาห์นี้</h3>
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <span className="text-xl">📊</span>
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{dashboardData.week_bookings}</p>
+          <p className="text-sm text-gray-500 mt-1">การจอง 7 วันที่ผ่านมา</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-600">เดือนนี้</h3>
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <span className="text-xl">📈</span>
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{dashboardData.month_bookings}</p>
+          <p className="text-sm text-gray-500 mt-1">การจอง 30 วันที่ผ่านมา</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-600">ยกเลิก</h3>
+            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+              <span className="text-xl">❌</span>
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{dashboardData.cancelled_bookings || 0}</p>
+          <p className="text-sm text-gray-500 mt-1">การจองที่ถูกยกเลิก</p>
+        </div>
+      </div>
+
+      {/* Booking Status Chart */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+          <span className="text-2xl mr-2">📊</span>
+          สถิติสถานะการจอง
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">อนุมัติแล้ว</span>
+              <span className="text-sm font-bold text-green-600">{dashboardData.approved_bookings || 0}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${dashboardData.total_bookings > 0 ? (dashboardData.approved_bookings / dashboardData.total_bookings * 100) : 0}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">รออนุมัติ</span>
+              <span className="text-sm font-bold text-yellow-600">{dashboardData.pending_bookings || 0}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-yellow-500 to-yellow-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${dashboardData.total_bookings > 0 ? (dashboardData.pending_bookings / dashboardData.total_bookings * 100) : 0}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">ปฏิเสธ</span>
+              <span className="text-sm font-bold text-red-600">{dashboardData.rejected_bookings || 0}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-red-500 to-red-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${dashboardData.total_bookings > 0 ? (dashboardData.rejected_bookings / dashboardData.total_bookings * 100) : 0}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">ยกเลิก</span>
+              <span className="text-sm font-bold text-gray-600">{dashboardData.cancelled_bookings || 0}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-gray-500 to-gray-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${dashboardData.total_bookings > 0 ? (dashboardData.cancelled_bookings / dashboardData.total_bookings * 100) : 0}%` }}
+              ></div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Total Bookings */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">การจองทั้งหมด</p>
-              <h3 className="text-3xl font-bold text-gray-900">{dashboardData.total_bookings}</h3>
+      {/* Most Used Rooms & Top Users */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Most Used Rooms */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+            <span className="text-2xl mr-2">🏆</span>
+            ห้องที่ถูกใช้งานมากที่สุด
+          </h3>
+          {dashboardData.most_used_rooms && dashboardData.most_used_rooms.length > 0 ? (
+            <div className="space-y-3">
+              {dashboardData.most_used_rooms.map((room, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${index === 0 ? 'bg-yellow-400 text-white' :
+                      index === 1 ? 'bg-gray-300 text-white' :
+                        index === 2 ? 'bg-orange-400 text-white' :
+                          'bg-gray-200 text-gray-600'
+                      }`}>
+                      {index + 1}
+                    </div>
+                    <span className="font-medium text-gray-900">{room.name}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-blue-600">{room.count} ครั้ง</span>
+                </div>
+              ))}
             </div>
-            <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-400 text-center py-8">ยังไม่มีข้อมูล</p>
+          )}
         </div>
 
-        {/* Pending */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">รออนุมัติ</p>
-              <h3 className="text-3xl font-bold text-gray-900">{dashboardData.pending_bookings}</h3>
+        {/* Top Users */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+            <span className="text-2xl mr-2">👥</span>
+            ผู้ใช้งานที่จองบ่อยที่สุด
+          </h3>
+          {dashboardData.top_users && dashboardData.top_users.length > 0 ? (
+            <div className="space-y-3">
+              {dashboardData.top_users.map((user, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${index === 0 ? 'bg-yellow-400 text-white' :
+                      index === 1 ? 'bg-gray-300 text-white' :
+                        index === 2 ? 'bg-orange-400 text-white' :
+                          'bg-gray-200 text-gray-600'
+                      }`}>
+                      {index + 1}
+                    </div>
+                    <span className="font-medium text-gray-900">{user.name}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-green-600">{user.count} ครั้ง</span>
+                </div>
+              ))}
             </div>
-            <div className="p-3 bg-yellow-50 rounded-xl text-yellow-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Users */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">ผู้ใช้งาน</p>
-              <h3 className="text-3xl font-bold text-gray-900">{dashboardData.total_users || 0}</h3>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-              </svg>
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-400 text-center py-8">ยังไม่มีข้อมูล</p>
+          )}
         </div>
       </div>
 
@@ -454,17 +669,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-gray-500">เพิ่ม/แก้ไขข้อมูลห้อง</p>
                 </div>
               </Link>
-              <Link href="/admin/users" className="flex items-center p-3 rounded-xl hover:bg-gray-50 transition-colors group">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center mr-3 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">จัดการผู้ใช้</p>
-                  <p className="text-xs text-gray-500">ดูรายชื่อผู้ใช้งาน</p>
-                </div>
-              </Link>
+
             </div>
           </div>
         </div>

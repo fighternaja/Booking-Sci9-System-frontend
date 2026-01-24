@@ -1,25 +1,36 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import Swal from 'sweetalert2'
 
-export default function SettingsPage() {
-  const [settings, setSettings] = useState({})
+export default function AdminSettingsPage() {
+  const [settings, setSettings] = useState({
+    max_hours_per_booking: 4,
+    min_hours_per_booking: 1,
+    allowed_time_start: '08:00',
+    allowed_time_end: '18:30',
+    max_bookings_per_day: 3,
+    max_bookings_per_week: 10,
+    max_advance_days: 30,
+    min_advance_hours: 1,
+    allowed_weekdays: [1, 2, 3, 4, 5],
+    require_approval: true
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState('general')
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
   const { token, logout } = useAuth()
   const router = useRouter()
 
-  const tabs = [
-    { id: 'general', label: 'ทั่วไป', icon: '⚙️' },
-    { id: 'booking', label: 'การจอง', icon: '📅' },
-    { id: 'notification', label: 'การแจ้งเตือน', icon: '🔔' },
-    { id: 'system', label: 'ระบบ', icon: '🖥️' }
+  const weekdays = [
+    { value: 0, label: 'อาทิตย์' },
+    { value: 1, label: 'จันทร์' },
+    { value: 2, label: 'อังคาร' },
+    { value: 3, label: 'พุธ' },
+    { value: 4, label: 'พฤหัสบดี' },
+    { value: 5, label: 'ศุกร์' },
+    { value: 6, label: 'เสาร์' }
   ]
 
   useEffect(() => {
@@ -28,12 +39,11 @@ export default function SettingsPage() {
       return
     }
     fetchSettings()
-  }, [token, activeTab])
+  }, [token])
 
   const fetchSettings = async () => {
     try {
-      setLoading(true)
-      const response = await fetch(`http://127.0.0.1:8000/api/admin/settings?group=${activeTab}`, {
+      const response = await fetch('http://127.0.0.1:8000/api/admin/settings/booking-restrictions', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -46,275 +56,340 @@ export default function SettingsPage() {
           router.push('/login')
           return
         }
-        throw new Error('Failed to fetch settings')
+
+        // Use default values if API fails
+        console.warn('Using default settings due to API error')
+        setLoading(false)
+        return
       }
 
       const data = await response.json()
-      if (data.success) {
-        // Convert array to object
-        const settingsObj = {}
-        if (Array.isArray(data.data)) {
-          data.data.forEach(setting => {
-            settingsObj[setting.key] = setting
-          })
-        }
-        setSettings(settingsObj)
+      if (data.success && data.data) {
+        setSettings(data.data)
       }
     } catch (error) {
-      console.error('Error fetching settings:', error)
-      setError('ไม่สามารถโหลดข้อมูลได้')
+      // Use default values on error
+      console.warn('Settings API unavailable, using defaults')
     } finally {
       setLoading(false)
     }
   }
 
-  const updateSetting = async (key, value, type = 'string') => {
+  const handleChange = (key, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: value
+    }))
+  }
+
+  const toggleWeekday = (day) => {
+    setSettings(prev => ({
+      ...prev,
+      allowed_weekdays: prev.allowed_weekdays.includes(day)
+        ? prev.allowed_weekdays.filter(d => d !== day)
+        : [...prev.allowed_weekdays, day].sort()
+    }))
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
     try {
-      setSaving(true)
-      setError(null)
-      
-      const response = await fetch(`http://127.0.0.1:8000/api/admin/settings/${key}`, {
+      const response = await fetch('http://127.0.0.1:8000/api/admin/settings/booking-restrictions', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ value, type })
+        body: JSON.stringify(settings)
       })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          logout()
-          router.push('/login')
-          return
-        }
-        throw new Error('Failed to update setting')
-      }
-
       const data = await response.json()
+
       if (data.success) {
-        setSettings(prev => ({
-          ...prev,
-          [key]: data.data
-        }))
-        setSuccess('บันทึกการตั้งค่าสำเร็จ')
-        setTimeout(() => setSuccess(null), 3000)
+        Swal.fire({
+          icon: 'success',
+          title: 'สำเร็จ',
+          text: 'บันทึกการตั้งค่าเรียบร้อย',
+          timer: 1500,
+          showConfirmButton: false
+        })
+      } else {
+        Swal.fire('ข้อผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error')
       }
     } catch (error) {
-      console.error('Error updating setting:', error)
-      setError('ไม่สามารถบันทึกการตั้งค่าได้')
+      console.error('Error saving settings:', error)
+      Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึก', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  const getDefaultSettings = () => {
-    const defaults = {
-      general: [
-        { key: 'site_name', label: 'ชื่อเว็บไซต์', type: 'string', value: 'ระบบจองห้อง', group: 'general' },
-        { key: 'site_description', label: 'คำอธิบายเว็บไซต์', type: 'string', value: '', group: 'general' },
-        { key: 'maintenance_mode', label: 'โหมดบำรุงรักษา', type: 'boolean', value: false, group: 'general' },
-      ],
-      booking: [
-        { key: 'booking_advance_days', label: 'จองล่วงหน้าได้ (วัน)', type: 'integer', value: 30, group: 'booking' },
-        { key: 'booking_min_duration', label: 'ระยะเวลาขั้นต่ำ (นาที)', type: 'integer', value: 30, group: 'booking' },
-        { key: 'booking_max_duration', label: 'ระยะเวลาสูงสุด (ชั่วโมง)', type: 'integer', value: 8, group: 'booking' },
-        { key: 'booking_start_time', label: 'เวลาเริ่มต้นที่จองได้', type: 'string', value: '08:00', group: 'booking' },
-        { key: 'booking_end_time', label: 'เวลาสิ้นสุดที่จองได้', type: 'string', value: '18:00', group: 'booking' },
-        { key: 'auto_approve_admin', label: 'อนุมัติอัตโนมัติสำหรับ Admin', type: 'boolean', value: true, group: 'booking' },
-      ],
-      notification: [
-        { 
-          key: 'email_notifications_enabled', 
-          label: 'เปิดใช้งาน Email Notifications', 
-          type: 'boolean', 
-          value: false, 
-          group: 'notification',
-          description: 'เปิดใช้งานการส่งอีเมลแจ้งเตือนเมื่อมีการเปลี่ยนแปลงสถานะการจอง (สร้าง, อนุมัติ, ปฏิเสธ, ยกเลิก)',
-          icon: '📧'
-        },
-        { 
-          key: 'reminder_before_hours', 
-          label: 'เตือนก่อนเริ่ม (ชั่วโมง)', 
-          type: 'integer', 
-          value: 1, 
-          group: 'notification',
-          description: 'จำนวนชั่วโมงที่ต้องการให้ระบบส่งอีเมลเตือนก่อนการจองเริ่มต้น (แนะนำ: 1-24 ชั่วโมง)',
-          icon: '⏰',
-          min: 1,
-          max: 24
-        },
-        { 
-          key: 'notification_on_approval', 
-          label: 'แจ้งเตือนเมื่ออนุมัติ', 
-          type: 'boolean', 
-          value: true, 
-          group: 'notification',
-          description: 'ส่งอีเมลแจ้งเตือนให้ผู้ใช้เมื่อการจองถูกอนุมัติ',
-          icon: '✅'
-        },
-        { 
-          key: 'notification_on_rejection', 
-          label: 'แจ้งเตือนเมื่อปฏิเสธ', 
-          type: 'boolean', 
-          value: true, 
-          group: 'notification',
-          description: 'ส่งอีเมลแจ้งเตือนให้ผู้ใช้เมื่อการจองถูกปฏิเสธ',
-          icon: '❌'
-        },
-      ],
-      system: [
-        { key: 'max_bookings_per_user', label: 'จำนวนการจองสูงสุดต่อผู้ใช้ (ต่อสัปดาห์)', type: 'integer', value: 10, group: 'system' },
-        { key: 'session_timeout', label: 'หมดเวลาสำหรับ Session (นาที)', type: 'integer', value: 120, group: 'system' },
-        { key: 'enable_audit_log', label: 'เปิดใช้งาน Audit Log', type: 'boolean', value: true, group: 'system' },
-      ]
+  const handleReset = async () => {
+    const result = await Swal.fire({
+      title: 'ยืนยันการรีเซ็ต?',
+      text: 'การตั้งค่าทั้งหมดจะกลับเป็นค่าเริ่มต้น',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#3b82f6',
+      confirmButtonText: 'รีเซ็ต',
+      cancelButtonText: 'ยกเลิก'
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/admin/settings/booking-restrictions/reset', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSettings(data.data)
+        Swal.fire('สำเร็จ', 'รีเซ็ตการตั้งค่าเรียบร้อย', 'success')
+      }
+    } catch (error) {
+      console.error('Error resetting settings:', error)
+      Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการรีเซ็ต', 'error')
     }
-    return defaults[activeTab] || []
-  }
-
-  const renderSettingInput = (setting) => {
-    const currentSetting = settings[setting.key] || setting
-
-    if (setting.type === 'boolean') {
-      return (
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={currentSetting.value === true || currentSetting.value === 'true' || currentSetting.value === 1}
-            onChange={(e) => updateSetting(setting.key, e.target.checked, 'boolean')}
-            className="sr-only peer"
-            disabled={saving}
-          />
-          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-        </label>
-      )
-    }
-
-    if (setting.type === 'integer') {
-      return (
-        <div className="relative">
-          <input
-            type="number"
-            value={currentSetting.value || setting.value || ''}
-            onChange={(e) => updateSetting(setting.key, parseInt(e.target.value) || 0, 'integer')}
-            min={setting.min}
-            max={setting.max}
-            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            disabled={saving}
-          />
-          {setting.min !== undefined && setting.max !== undefined && (
-            <p className="text-xs text-gray-400 mt-1">ช่วงที่แนะนำ: {setting.min} - {setting.max}</p>
-          )}
-        </div>
-      )
-    }
-
-    return (
-      <input
-        type="text"
-        value={currentSetting.value || setting.value || ''}
-        onChange={(e) => updateSetting(setting.key, e.target.value, 'string')}
-        className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        disabled={saving}
-      />
-    )
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">กำลังโหลด...</p>
+      <div className="p-8 max-w-5xl mx-auto">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white p-6 rounded-2xl h-32"></div>
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+    <div className="p-8 max-w-5xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">⚙️ ตั้งค่าระบบ</h1>
+        <p className="text-gray-600">จัดการข้อจำกัดและกฎเกณฑ์การจองห้อง</p>
+      </div>
+
+      <div className="space-y-6">
+        {/* เวลาการจอง */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            ⏱️ เวลาการจอง
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                การตั้งค่าระบบ
-              </h1>
-              <p className="text-gray-600 text-lg">จัดการการตั้งค่าระบบทั้งหมด</p>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">จำนวนชั่วโมงขั้นต่ำ</label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={settings.min_hours_per_booking}
+                onChange={(e) => handleChange('min_hours_per_booking', parseInt(e.target.value))}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-            <Link
-              href="/admin"
-              className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
-            >
-              ← กลับไป Dashboard
-            </Link>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">จำนวนชั่วโมงสูงสุด</label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={settings.max_hours_per_booking}
+                onChange={(e) => handleChange('max_hours_per_booking', parseInt(e.target.value))}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">เวลาเริ่มต้นที่อนุญาต</label>
+              <input
+                type="time"
+                value={settings.allowed_time_start}
+                onChange={(e) => handleChange('allowed_time_start', e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">เวลาสิ้นสุดที่อนุญาต</label>
+              <input
+                type="time"
+                value={settings.allowed_time_end}
+                onChange={(e) => handleChange('allowed_time_end', e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
+        </div>
 
-          {/* Tabs */}
-          <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-2 mb-6">
-            <div className="flex space-x-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg transform scale-105'
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+        {/* จำนวนการจอง */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            📊 จำนวนการจอง
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">สูงสุดต่อวัน</label>
+              <input
+                type="number"
+                min="1"
+                value={settings.max_bookings_per_day}
+                onChange={(e) => handleChange('max_bookings_per_day', parseInt(e.target.value))}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">สูงสุดต่อสัปดาห์</label>
+              <input
+                type="number"
+                min="1"
+                value={settings.max_bookings_per_week}
+                onChange={(e) => handleChange('max_bookings_per_week', parseInt(e.target.value))}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* การจองล่วงหน้า */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            📅 การจองล่วงหน้า
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">จองล่วงหน้าได้สูงสุด (วัน)</label>
+              <input
+                type="number"
+                min="1"
+                value={settings.max_advance_days}
+                onChange={(e) => handleChange('max_advance_days', parseInt(e.target.value))}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">ต้องจองล่วงหน้าอย่างน้อย (ชั่วโมง)</label>
+              <input
+                type="number"
+                min="0"
+                value={settings.min_advance_hours}
+                onChange={(e) => handleChange('min_advance_hours', parseInt(e.target.value))}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* วันที่อนุญาต */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            📆 วันที่อนุญาตให้จอง
+          </h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {weekdays.map((day) => (
+              <label
+                key={day.value}
+                className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${settings.allowed_weekdays.includes(day.value)
+                  ? 'bg-orange-50 border-orange-500 text-orange-900'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
-                >
-                  <span className="mr-2">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+              >
+                <input
+                  type="checkbox"
+                  checked={settings.allowed_weekdays.includes(day.value)}
+                  onChange={() => toggleWeekday(day.value)}
+                  className="w-5 h-5 text-orange-600 rounded focus:ring-orange-500 mr-2"
+                />
+                <span className="font-medium">{day.label}</span>
+              </label>
+            ))}
           </div>
+        </div>
 
-          {/* Messages */}
-          {error && (
-            <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-4">
-              <p className="text-red-800 font-semibold">{error}</p>
-            </div>
-          )}
+        {/* การอนุมัติ */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            ✅ การอนุมัติ
+          </h2>
 
-          {success && (
-            <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4">
-              <p className="text-green-800 font-semibold">{success}</p>
+          <label className="flex items-center p-4 bg-indigo-50 rounded-xl border-2 border-indigo-200 cursor-pointer hover:bg-indigo-100 transition-colors">
+            <input
+              type="checkbox"
+              checked={settings.require_approval}
+              onChange={(e) => handleChange('require_approval', e.target.checked)}
+              className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 mr-3"
+            />
+            <div>
+              <span className="font-semibold text-indigo-900 block">ต้องการการอนุมัติจาก Admin</span>
+              <span className="text-sm text-indigo-700">การจองทั้งหมดต้องได้รับการอนุมัติก่อนจึงจะใช้งานได้</span>
             </div>
-          )}
+          </label>
+        </div>
 
-          {/* Settings Form */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="space-y-6">
-              {getDefaultSettings().map((setting) => (
-                <div key={setting.key} className="border-b border-gray-200 pb-6 last:border-b-0">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {setting.icon && <span className="text-2xl">{setting.icon}</span>}
-                        <label className="text-lg font-semibold text-gray-900">
-                          {setting.label}
-                        </label>
-                      </div>
-                      {setting.description && (
-                        <p className="text-sm text-gray-500 mb-3 ml-8">{setting.description}</p>
-                      )}
-                    </div>
-                    {saving && (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 ml-4"></div>
-                    )}
-                  </div>
-                  <div className="mt-2 ml-8">
-                    {renderSettingInput(setting)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* ปุ่ม */}
+        <div className="flex gap-4">
+          <button
+            onClick={handleReset}
+            className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            รีเซ็ตค่าเริ่มต้น
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {saving ? (
+              <>
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                กำลังบันทึก...
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                บันทึกการตั้งค่า
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
   )
 }
-

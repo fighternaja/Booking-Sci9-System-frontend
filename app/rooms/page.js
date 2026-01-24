@@ -217,7 +217,7 @@ export default function RoomsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12">
         <div className="mb-8">
           <div className="mb-6">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
@@ -344,9 +344,9 @@ export default function RoomsPage() {
                 <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                   <div className="text-sm">
                     <span className={`font-bold ${room.status === 'available' ? 'text-green-600' :
-                        room.status === 'maintenance' ? 'text-red-600' :
-                          room.status === 'occupied' ? 'text-orange-600' :
-                            'text-blue-600'
+                      room.status === 'maintenance' ? 'text-red-600' :
+                        room.status === 'occupied' ? 'text-orange-600' :
+                          'text-blue-600'
                       }`}>
                       {room.status === 'occupied' ? 'ห้องนี้ถูกจองแล้ว' :
                         room.status === 'available' ? 'ว่าง' :

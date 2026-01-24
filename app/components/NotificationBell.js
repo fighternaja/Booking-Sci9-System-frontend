@@ -44,23 +44,26 @@ export default function NotificationBell() {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
         }
+      }).catch(() => {
+        // Silently handle network errors
+        return null
       })
 
-      if (response.ok) {
-        const contentType = response.headers.get('content-type')
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json()
-          if (data.success) {
-            setNotifications(data.data || [])
-            setUnreadCount(data.unread_count || 0)
-          }
-        } else {
-          const text = await response.text()
-          console.error('Non-JSON response:', text)
+      if (!response || !response.ok) {
+        // Silently fail - notifications are not critical
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        if (data.success) {
+          setNotifications(data.data || [])
+          setUnreadCount(data.unread_count || 0)
         }
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error)
+      // Silently handle errors - notifications are not critical
     } finally {
       setLoading(false)
     }
@@ -232,7 +235,11 @@ export default function NotificationBell() {
           <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
             <button
               onClick={() => {
-                router.push('/notifications')
+                if (isAdmin()) {
+                  router.push('/admin/notifications')
+                } else {
+                  router.push('/notifications')
+                }
                 setIsOpen(false)
               }}
               className="text-xs text-blue-600 hover:text-blue-800 w-full text-center"

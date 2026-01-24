@@ -129,7 +129,7 @@ export default function BookRoomPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         <div className="flex flex-col gap-8">
           {/* Top Section - Room Details & Image */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
@@ -157,11 +157,22 @@ export default function BookRoomPage() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h2 className="text-3xl font-bold text-gray-900 mb-2">{room.name}</h2>
-                      {room.floor && (
-                        <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                          ชั้น {room.floor}
-                        </span>
-                      )}
+                      <div className="flex gap-2 flex-wrap">
+                        {room.floor && (
+                          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                            ชั้น {room.floor}
+                          </span>
+                        )}
+                        {room.location && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {room.location}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {/* Capacity Badge */}
                     <div className="flex items-center bg-gray-100 px-4 py-2 rounded-lg">
@@ -172,19 +183,71 @@ export default function BookRoomPage() {
                     </div>
                   </div>
 
-                  <p className="text-gray-600 text-lg mb-6">{room.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+                  {room.description && (
+                    <p className="text-gray-600 text-lg mb-6 leading-relaxed">{room.description}</p>
+                  )}
 
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">สิ่งอำนวยความสะดวก</h3>
-                  <div className="flex flex-wrap gap-3">
-                    {room.amenities && Array.isArray(room.amenities) && room.amenities.map((amenity, index) => (
-                      <span key={index} className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-50 text-gray-700 border border-gray-200">
-                        {amenity}
-                      </span>
-                    ))}
-                  </div>
+                  {/* Equipment Section */}
+                  {room.amenities?.equipment && room.amenities.equipment.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        🛠️ อุปกรณ์ในห้อง
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {room.amenities.equipment.map((eq, index) => (
+                          <div key={index} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-purple-50 text-purple-900 border border-purple-200">
+                            <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span>{eq.name}</span>
+                            {eq.quantity && <span className="text-purple-600">({eq.quantity})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Facilities Section */}
+                  {room.amenities?.facilities && room.amenities.facilities.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        🏢 สิ่งอำนวยความสะดวก
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {room.amenities.facilities.map((facility, index) => (
+                          <span key={index} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 text-blue-900 border border-blue-200">
+                            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            {facility}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy amenities support (if still using old format) */}
+                  {room.amenities && Array.isArray(room.amenities) && room.amenities.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">สิ่งอำนวยความสะดวก</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {room.amenities.map((amenity, index) => (
+                          <span key={index} className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-50 text-gray-700 border border-gray-200">
+                            {amenity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Show a small snippet of today's bookings or summary if needed, but keeping it clean as requested */}
+                {/* Today's bookings summary */}
                 {todayBookings.length > 0 && (
                   <div className="mt-6 pt-6 border-t border-gray-100">
                     <p className="text-sm text-gray-500 font-medium mb-2">การจองวันนี้ ({todayBookings.length})</p>

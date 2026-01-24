@@ -19,9 +19,14 @@ export default function AdminRoomsPage() {
     description: '',
     capacity: '',
     location: '',
-    amenities: [],
+    amenities: {
+      equipment: [],
+      facilities: []
+    },
     is_active: true
   })
+  const [newEquipment, setNewEquipment] = useState({ name: '', quantity: 1 })
+  const [newFacility, setNewFacility] = useState('')
   const { token, logout } = useAuth()
   const router = useRouter()
 
@@ -119,7 +124,10 @@ export default function AdminRoomsPage() {
           description: '',
           capacity: '',
           location: '',
-          amenities: [],
+          amenities: {
+            equipment: [],
+            facilities: []
+          },
           is_active: true
         })
         fetchRooms()
@@ -137,10 +145,56 @@ export default function AdminRoomsPage() {
       description: room.description || '',
       capacity: room.capacity.toString(),
       location: room.location,
-      amenities: room.amenities || [],
+      amenities: room.amenities || { equipment: [], facilities: [] },
       is_active: room.is_active
     })
     setShowModal(true)
+  }
+
+  const handleAddEquipment = () => {
+    if (!newEquipment.name.trim()) return
+
+    setFormData(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        equipment: [...(prev.amenities.equipment || []), { ...newEquipment }]
+      }
+    }))
+    setNewEquipment({ name: '', quantity: 1 })
+  }
+
+  const handleRemoveEquipment = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        equipment: prev.amenities.equipment.filter((_, i) => i !== index)
+      }
+    }))
+  }
+
+  const handleAddFacility = () => {
+    if (!newFacility.trim()) return
+
+    setFormData(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        facilities: [...(prev.amenities.facilities || []), newFacility.trim()]
+      }
+    }))
+    setNewFacility('')
+  }
+
+  const handleRemoveFacility = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: {
+        ...prev.amenities,
+        facilities: prev.amenities.facilities.filter((_, i) => i !== index)
+      }
+    }))
   }
 
   const handleDelete = async (roomId) => {
@@ -253,9 +307,14 @@ export default function AdminRoomsPage() {
               description: '',
               capacity: '',
               location: '',
-              amenities: [],
+              amenities: {
+                equipment: [],
+                facilities: []
+              },
               is_active: true
             })
+            setNewEquipment({ name: '', quantity: 1 })
+            setNewFacility('')
             setShowModal(true)
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg flex items-center gap-2"
@@ -287,8 +346,8 @@ export default function AdminRoomsPage() {
             <button
               onClick={() => setViewMode('table')}
               className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'table'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
                 }`}
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,8 +358,8 @@ export default function AdminRoomsPage() {
             <button
               onClick={() => setViewMode('cards')}
               className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'cards'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
                 }`}
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,28 +374,28 @@ export default function AdminRoomsPage() {
       {viewMode === 'table' ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50/50">
+            <table className="min-w-full border-collapse border border-gray-300">
+              <thead className="bg-gray-100">
                 <tr>
-                  <th onClick={() => handleSort('name')} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('name')} className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors border border-gray-300">
                     <div className="flex items-center gap-2">ชื่อห้อง {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}</div>
                   </th>
-                  <th onClick={() => handleSort('location')} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('location')} className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors border border-gray-300">
                     <div className="flex items-center gap-2">ที่ตั้ง {sortField === 'location' && (sortDirection === 'asc' ? '↑' : '↓')}</div>
                   </th>
-                  <th onClick={() => handleSort('capacity')} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('capacity')} className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors border border-gray-300">
                     <div className="flex items-center gap-2">ความจุ {sortField === 'capacity' && (sortDirection === 'asc' ? '↑' : '↓')}</div>
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">สถานะ</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">จัดการ</th>
+                  <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-300">สถานะ</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-300">จัดการ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="bg-white">
                 {filteredAndSortedRooms.map((room) => (
-                  <tr key={room.id} className="hover:bg-gray-50/80 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr key={room.id} className="hover:bg-blue-50 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap border border-gray-300">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                        <div className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                           {room.image ? (
                             <img src={`http://localhost:8000/storage/${room.image}`} alt={room.name} className="h-full w-full object-cover" />
                           ) : (
@@ -351,26 +410,26 @@ export default function AdminRoomsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{room.location}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{room.capacity} คน</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${room.is_active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border border-gray-300">{room.location}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border border-gray-300">{room.capacity} คน</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${room.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
                         }`}>
                         {room.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
+                      <div className="flex justify-end gap-2">
                         <button
                           onClick={() => handleEdit(room)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-200"
                           title="แก้ไข"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
                         <button
                           onClick={() => handleDelete(room.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
                           title="ลบ"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -463,8 +522,8 @@ export default function AdminRoomsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-scaleIn flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 flex-shrink-0">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingRoom ? '✏️ แก้ไขข้อมูลห้อง' : '✨ เพิ่มห้องใหม่'}
               </h2>
@@ -473,78 +532,196 @@ export default function AdminRoomsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">ชื่อห้อง <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  placeholder="เช่น ห้องประชุม 101"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">คำอธิบาย</label>
-                <textarea
-                  name="description"
-                  placeholder="รายละเอียดเพิ่มเติมของห้อง..."
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-5 overflow-y-auto flex-1">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">ความจุ (คน) <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    name="capacity"
-                    required
-                    min="1"
-                    placeholder="0"
-                    value={formData.capacity}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">สถานที่ <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">ชื่อห้อง <span className="text-red-500">*</span></label>
                   <input
                     type="text"
-                    name="location"
+                    name="name"
                     required
-                    placeholder="เช่น ชั้น 1 อาคารเรียนรวม"
-                    value={formData.location}
+                    placeholder="เช่น ห้องประชุม 101"
+                    value={formData.name}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 </div>
-              </div>
 
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between">
                 <div>
-                  <span className="block text-sm font-medium text-gray-900">สถานะห้อง</span>
-                  <span className="block text-xs text-gray-500">เปิด/ปิด การจองห้องนี้</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">คำอธิบาย</label>
+                  <textarea
+                    name="description"
+                    placeholder="รายละเอียดเพิ่มเติมของห้อง..."
+                    value={formData.description}
                     onChange={handleChange}
-                    className="sr-only peer"
+                    rows={3}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
+                </div>
 
-              <div className="flex gap-3 pt-4">
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">ความจุ (คน) <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      name="capacity"
+                      required
+                      min="1"
+                      placeholder="0"
+                      value={formData.capacity}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">สถานที่ <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      name="location"
+                      required
+                      placeholder="เช่น ชั้น 1 อาคารเรียนรวม"
+                      value={formData.location}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Amenities Section */}
+                <div className="space-y-4 border-t border-gray-200 pt-5">
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    อุปกรณ์และสิ่งอำนวยความสะดวก
+                  </h3>
+
+                  {/* Equipment */}
+                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                    <label className="block text-sm font-semibold text-purple-900 mb-3">🛠️ อุปกรณ์ในห้อง</label>
+
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        placeholder="ชื่ออุปกรณ์ เช่น โปรเจคเตอร์"
+                        value={newEquipment.name}
+                        onChange={(e) => setNewEquipment({ ...newEquipment, name: e.target.value })}
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddEquipment())}
+                        className="flex-1 px-3 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="จำนวน"
+                        min="1"
+                        value={newEquipment.quantity}
+                        onChange={(e) => setNewEquipment({ ...newEquipment, quantity: parseInt(e.target.value) || 1 })}
+                        className="w-24 px-3 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddEquipment}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        เพิ่ม
+                      </button>
+                    </div>
+
+                    {formData.amenities.equipment && formData.amenities.equipment.length > 0 ? (
+                      <div className="space-y-2">
+                        {formData.amenities.equipment.map((eq, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white p-2 rounded-lg border border-purple-200">
+                            <span className="text-sm text-gray-900">
+                              • {eq.name} <span className="text-gray-500">({eq.quantity})</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveEquipment(index)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-purple-600 text-center py-2">ยังไม่มีอุปกรณ์</p>
+                    )}
+                  </div>
+
+                  {/* Facilities */}
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <label className="block text-sm font-semibold text-blue-900 mb-3">🏢 สิ่งอำนวยความสะดวก</label>
+
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        placeholder="เช่น Wi-Fi, เครื่องปรับอากาศ"
+                        value={newFacility}
+                        onChange={(e) => setNewFacility(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFacility())}
+                        className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddFacility}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        เพิ่ม
+                      </button>
+                    </div>
+
+                    {formData.amenities.facilities && formData.amenities.facilities.length > 0 ? (
+                      <div className="space-y-2">
+                        {formData.amenities.facilities.map((facility, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white p-2 rounded-lg border border-blue-200">
+                            <span className="text-sm text-gray-900">• {facility}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFacility(index)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-blue-600 text-center py-2">ยังไม่มีสิ่งอำนวยความสะดวก</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between">
+                  <div>
+                    <span className="block text-sm font-medium text-gray-900">สถานะห้อง</span>
+                    <span className="block text-xs text-gray-500">เปิด/ปิด การจองห้องนี้</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="is_active"
+                      checked={formData.is_active}
+                      onChange={handleChange}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
+              {/* End of scrollable content */}
+
+              {/* Sticky footer with buttons */}
+              <div className="flex gap-3 p-6 border-t border-gray-100 bg-gray-50 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}

@@ -20,6 +20,24 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
   const [showCancelForm, setShowCancelForm] = useState(false)
   const [cancellationReason, setCancellationReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [selectedEquipment, setSelectedEquipment] = useState([])
+
+  // Recurring Bookings State
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringData, setRecurringData] = useState({
+    recurrence_type: 'weekly',
+    interval: 1,
+    days_of_week: [],
+    day_of_month: 1,
+    end_date: '',
+    max_occurrences: ''
+  })
+
+  // Attendees State
+  const [attendees, setAttendees] = useState([])
+  const [attendeeEmail, setAttendeeEmail] = useState('')
+  const [attendeeName, setAttendeeName] = useState('')
+
   const { user, token, isAdmin } = useAuth()
   const router = useRouter()
 
@@ -37,6 +55,19 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       })
       setError('')
       setAvailability(null)
+      setIsRecurring(false)
+      setRecurringData({
+        recurrence_type: 'weekly',
+        interval: 1,
+        days_of_week: [],
+        day_of_month: 1,
+        end_date: '',
+        max_occurrences: ''
+      })
+      setAttendees([])
+      setAttendeeEmail('')
+      setAttendeeName('')
+      setSelectedEquipment([])
     }
   }, [isOpen])
 
@@ -208,6 +239,54 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     }
   }
 
+  const handleAddAttendee = () => {
+    if (!attendeeEmail.trim()) {
+      setError('กรุณากรอกอีเมลผู้เข้าร่วม')
+      return
+    }
+
+    // Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(attendeeEmail)) {
+      setError('รูปแบบอีเมลไม่ถูกต้อง')
+      return
+    }
+
+    // Check duplicate
+    if (attendees.some(a => a.email === attendeeEmail)) {
+      setError('อีเมลนี้ถูกเพิ่มแล้ว')
+      return
+    }
+
+    setAttendees([...attendees, {
+      email: attendeeEmail,
+      name: attendeeName || attendeeEmail,
+      is_required: false
+    }])
+    setAttendeeEmail('')
+    setAttendeeName('')
+    setError('')
+  }
+
+  const handleRemoveAttendee = (email) => {
+    setAttendees(attendees.filter(a => a.email !== email))
+  }
+
+  const toggleDayOfWeek = (day) => {
+    const days = recurringData.days_of_week
+    if (days.includes(day)) {
+      setRecurringData({
+        ...recurringData,
+        days_of_week: days.filter(d => d !== day)
+      })
+    } else {
+      setRecurringData({
+        ...recurringData,
+        days_of_week: [...days, day]
+      })
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -269,24 +348,74 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     }
 
     try {
-      // Debug: แสดงข้อมูลที่ส่งไป
-      console.log('Booking request:', {
-        room_id: room.id,
-        start_time: fullStartTime,
-        end_time: fullEndTime,
-        purpose: formData.purpose,
-        notes: formData.notes,
-        local_start: startTime.toString(),
-        local_end: endTime.toString(),
-        token: token ? 'present' : 'missing'
-      })
-
       if (!token) {
         setError('กรุณาเข้าสู่ระบบก่อน')
         setLoading(false)
         return
       }
 
+      // Handle Recurring Booking
+      if (isRecurring) {
+        const recurringPayload = {
+          room_id: room.id,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          purpose: formData.purpose,
+          notes: formData.notes,
+          recurrence_type: recurringData.recurrence_type,
+          start_date: baseDate,
+          interval: recurringData.interval
+        }
+
+        if (recurringData.end_date) {
+          recurringPayload.end_date = recurringData.end_date
+        }
+        if (recurringData.max_occurrences) {
+          recurringPayload.max_occurrences = parseInt(recurringData.max_occurrences)
+        }
+        if (recurringData.recurrence_type === 'weekly' && recurringData.days_of_week.length > 0) {
+          recurringPayload.days_of_week = recurringData.days_of_week
+        }
+        if (recurringData.recurrence_type === 'monthly') {
+          recurringPayload.day_of_month = recurringData.day_of_month
+        }
+
+        const response = await fetch('http://127.0.0.1:8000/api/recurring-bookings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(recurringPayload)
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          setError(errorData.message || 'เกิดข้อผิดพลาดในการสร้างการจองซ้ำ')
+          setLoading(false)
+          return
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          onBookingSuccess()
+          setTimeout(() => {
+            Swal.fire({
+              title: 'สำเร็จ!',
+              text: data.message || 'สร้างการจองซ้ำสำเร็จ',
+              icon: 'success',
+              confirmButtonText: 'ตกลง',
+              confirmButtonColor: '#3B82F6'
+            }).then(() => {
+              router.push('/my-bookings?tab=recurring')
+            })
+          }, 100)
+        }
+        return
+      }
+
+      // Regular Booking
       const response = await fetch('http://127.0.0.1:8000/api/bookings', {
         method: 'POST',
         headers: {
@@ -414,6 +543,27 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       const data = await response.json()
 
       if (data.success) {
+        const bookingId = data.data.id
+
+        // Add attendees if any
+        if (attendees.length > 0) {
+          for (const attendee of attendees) {
+            try {
+              await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/attendees`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                body: JSON.stringify(attendee)
+              })
+            } catch (err) {
+              console.error('Error adding attendee:', err)
+            }
+          }
+        }
+
         // แสดงข้อความสำเร็จตาม status
         const message = data.message || (data.data.status === 'pending'
           ? 'ส่งคำขอจองห้องแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบ'
@@ -426,7 +576,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         setTimeout(() => {
           Swal.fire({
             title: 'สำเร็จ!',
-            text: message,
+            text: message + (attendees.length > 0 ? ` และเพิ่มผู้เข้าร่วม ${attendees.length} คน` : ''),
             icon: 'success',
             confirmButtonText: 'ตกลง',
             confirmButtonColor: '#3B82F6' // matches blue-600
@@ -546,57 +696,55 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
   return (
     <div className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slideUp">
-        {/* Header with Gradient */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 text-white">
+        {/* Header - Clean & Simple */}
+        <div className="bg-white border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-2">
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">
-                    {selectedDate?.booking ? 'รายละเอียดการจอง' : 'จองห้อง'}
-                  </h2>
-                  <p className="text-blue-100 mt-1 text-sm">
-                    {room?.name} • {formatDate(selectedDate?.start)}
-                  </p>
-                </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-blue-50 rounded-xl">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {selectedDate?.booking ? 'รายละเอียดการจอง' : 'จองห้อง'}
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {room?.name} • {formatDate(selectedDate?.start)}
+                </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-all duration-200"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-6">
-          {/* Room Info */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 mb-6 border border-blue-100 shadow-sm">
+        <div className="overflow-y-auto flex-1 p-6 bg-gray-50">
+          {/* Room Info - Clean Card */}
+          <div className="bg-white rounded-xl p-5 mb-6 border border-gray-200 shadow-sm">
             <div className="flex items-center space-x-4">
-              <div className="h-20 w-20 bg-white rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 {room?.image ? (
                   <img
                     src={`http://127.0.0.1:8000/${room.image}`}
                     alt={room.name}
-                    className="w-full h-full object-cover rounded-xl"
+                    className="w-full h-full object-cover rounded-lg"
                   />
                 ) : (
-                  <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-gray-900 text-lg mb-1">{room?.name}</h3>
-                <p className="text-sm text-gray-600 mb-3">{room?.description || 'ห้องประชุม'}</p>
+                <h3 className="font-bold text-gray-900 text-base mb-1">{room?.name}</h3>
+                <p className="text-sm text-gray-500 mb-2">{room?.description || 'ห้องประชุม'}</p>
                 <div className="flex flex-wrap gap-3 text-sm">
                   <div className="flex items-center text-gray-700">
                     <svg className="w-4 h-4 text-blue-600 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -828,6 +976,52 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
                 />
               </div>
 
+              {/* Equipment Selection */}
+              {room?.amenities?.equipment && room.amenities.equipment.length > 0 && (
+                <div className="space-y-2">
+                  <label className="flex items-center text-sm font-semibold text-gray-900">
+                    <svg className="w-4 h-4 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    🛠️ อุปกรณ์ที่ต้องการใช้
+                  </label>
+                  <p className="text-xs text-gray-500 ml-6">เลือกอุปกรณ์ที่ต้องการใช้งาน (ไม่บังคับ)</p>
+                  <div className="grid grid-cols-2 gap-2 ml-6">
+                    {room.amenities.equipment.map((eq, index) => {
+                      const equipmentId = `${eq.name}-${index}`
+                      const isSelected = selectedEquipment.some(item => item.name === eq.name)
+
+                      return (
+                        <label
+                          key={index}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${isSelected
+                            ? 'bg-white/70 border-gray-400 text-gray-900'
+                            : 'bg-white/50 border-gray-200 text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedEquipment([...selectedEquipment, { name: eq.name, quantity: 1 }])
+                              } else {
+                                setSelectedEquipment(selectedEquipment.filter(item => item.name !== eq.name))
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm font-medium">{eq.name}</span>
+                            {eq.quantity && <span className="text-xs text-gray-500 ml-1">({eq.quantity} ชิ้น)</span>}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label htmlFor="notes" className="flex items-center text-sm font-semibold text-gray-900">
                   <svg className="w-4 h-4 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -845,6 +1039,201 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
                   placeholder="ระบุรายละเอียดเพิ่มเติม"
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-all duration-200 bg-white hover:border-gray-300 resize-none"
                 />
+              </div>
+
+              {/* Recurring Booking Section */}
+              <div className="space-y-4 p-5 bg-white/50 backdrop-blur-sm rounded-xl border-2 border-gray-200">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center text-sm font-semibold text-gray-900 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isRecurring}
+                      onChange={(e) => setIsRecurring(e.target.checked)}
+                      className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                    />
+                    <svg className="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    จองซ้ำ (Recurring Booking)
+                  </label>
+                </div>
+
+                {isRecurring && (
+                  <div className="space-y-4 mt-4 animate-fadeIn">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">รูปแบบการจอง</label>
+                        <select
+                          value={recurringData.recurrence_type}
+                          onChange={(e) => setRecurringData({ ...recurringData, recurrence_type: e.target.value })}
+                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="daily">ทุกวัน (Daily)</option>
+                          <option value="weekly">ทุกสัปดาห์ (Weekly)</option>
+                          <option value="monthly">ทุกเดือน (Monthly)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">ทุกๆ</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="12"
+                          value={recurringData.interval}
+                          onChange={(e) => setRecurringData({ ...recurringData, interval: parseInt(e.target.value) || 1 })}
+                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="1"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {recurringData.recurrence_type === 'daily' && 'วัน'}
+                          {recurringData.recurrence_type === 'weekly' && 'สัปดาห์'}
+                          {recurringData.recurrence_type === 'monthly' && 'เดือน'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {recurringData.recurrence_type === 'weekly' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">เลือกวัน</label>
+                        <div className="grid grid-cols-7 gap-2">
+                          {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((day, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => toggleDayOfWeek(index)}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${recurringData.days_of_week.includes(index)
+                                ? 'bg-purple-600 text-white shadow-md'
+                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-purple-300'
+                                }`}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {recurringData.recurrence_type === 'monthly' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">วันที่ของเดือน</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          value={recurringData.day_of_month}
+                          onChange={(e) => setRecurringData({ ...recurringData, day_of_month: parseInt(e.target.value) || 1 })}
+                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">สิ้นสุดวันที่ (ไม่บังคับ)</label>
+                        <input
+                          type="date"
+                          value={recurringData.end_date}
+                          onChange={(e) => setRecurringData({ ...recurringData, end_date: e.target.value })}
+                          min={baseDate}
+                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">จำนวนครั้ง (ไม่บังคับ)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={recurringData.max_occurrences}
+                          onChange={(e) => setRecurringData({ ...recurringData, max_occurrences: e.target.value })}
+                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="ไม่จำกัด"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-100 border border-purple-300 rounded-lg p-3">
+                      <p className="text-xs text-purple-800">
+                        <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        การจองซ้ำจะสร้างการจองหลายครั้งตามรูปแบบที่เลือก แต่ละครั้งจะต้องได้รับการอนุมัติแยกกัน
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Attendees Section */}
+              <div className="space-y-4 p-5 bg-white/50 backdrop-blur-sm rounded-xl border-2 border-gray-200">
+                <div className="flex items-center mb-3">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <label className="text-sm font-semibold text-gray-900">ผู้เข้าร่วม (Attendees)</label>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="email"
+                      value={attendeeEmail}
+                      onChange={(e) => setAttendeeEmail(e.target.value)}
+                      placeholder="อีเมลผู้เข้าร่วม"
+                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAttendee())}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={attendeeName}
+                      onChange={(e) => setAttendeeName(e.target.value)}
+                      placeholder="ชื่อ (ไม่บังคับ)"
+                      className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAttendee())}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddAttendee}
+                      className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      เพิ่ม
+                    </button>
+                  </div>
+                </div>
+
+                {attendees.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs font-medium text-gray-600">รายชื่อผู้เข้าร่วม ({attendees.length})</p>
+                    {attendees.map((attendee, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{attendee.name}</p>
+                          <p className="text-xs text-gray-500">{attendee.email}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttendee(attendee.email)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-xs text-blue-700 mt-2">
+                  <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  ผู้เข้าร่วมจะได้รับอีเมลเชิญเข้าร่วมการจอง
+                </p>
               </div>
 
               {/* Availability Status */}
@@ -966,7 +1355,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
           )}
         </div>
       </div>
-    </div>
+    </div >
   )
 }
 

@@ -114,7 +114,20 @@ export default function AdminSchedulePage() {
 
     setLoading(true)
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/bookings', {
+      const current = new Date(selectedDate)
+      const day = current.getDay() === 0 ? 7 : current.getDay()
+      const monday = new Date(current)
+      monday.setDate(current.getDate() - (day - 1))
+      monday.setHours(0, 0, 0, 0) // Start of week
+
+      const sunday = new Date(monday)
+      sunday.setDate(monday.getDate() + 6)
+      sunday.setHours(23, 59, 59, 999) // End of week
+
+      const startStr = monday.toISOString().slice(0, 19).replace('T', ' ')
+      const endStr = sunday.toISOString().slice(0, 19).replace('T', ' ')
+
+      const response = await fetch(`http://127.0.0.1:8000/api/bookings?start_date=${startStr}&end_date=${endStr}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -154,7 +167,7 @@ export default function AdminSchedulePage() {
   }
 
   // Excel Import Functions
-  const handleFileUpload = (event) => {
+  function handleFileUpload(event) {
     const file = event.target.files[0]
     if (!file) return
 

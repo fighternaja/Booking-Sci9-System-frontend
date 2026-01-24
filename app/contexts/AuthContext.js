@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const storedToken = localStorage.getItem('token')
     const storedUser = localStorage.getItem('user')
-    
+
     if (storedToken && storedUser) {
       setToken(storedToken)
       setUser(JSON.parse(storedUser))
@@ -128,7 +128,7 @@ export function AuthProvider({ children }) {
           'Authorization': `Bearer ${authToken}`,
         },
       })
-      
+
       if (!response.ok) {
         return null
       }
@@ -139,7 +139,7 @@ export function AuthProvider({ children }) {
         console.error('Non-JSON response:', text)
         return null
       }
-      
+
       const data = await response.json()
       setUser(data)
       localStorage.setItem('user', JSON.stringify(data))
@@ -154,15 +154,16 @@ export function AuthProvider({ children }) {
   const updateProfile = async (profileData) => {
     try {
       const authToken = localStorage.getItem('token')
-      
+
       // สร้าง FormData สำหรับรองรับการอัปโหลดไฟล์
       const formData = new FormData()
-      
+
       if (profileData.name) formData.append('name', profileData.name)
       if (profileData.email) formData.append('email', profileData.email)
+      if (profileData.phone) formData.append('phone', profileData.phone)
       if (profileData.password) formData.append('password', profileData.password)
       if (profileData.profile_picture) formData.append('profile_picture', profileData.profile_picture)
-      
+
       const response = await fetch('http://127.0.0.1:8000/api/user/update', {
         method: 'POST',
         headers: {
@@ -171,7 +172,7 @@ export function AuthProvider({ children }) {
         },
         body: formData,
       })
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Error updating user: HTTP', response.status, errorText)
@@ -184,9 +185,9 @@ export function AuthProvider({ children }) {
         console.error('Non-JSON response:', text)
         return { success: false, message: 'Server returned invalid response format' }
       }
-      
+
       const data = await response.json()
-      
+
       if (response.ok) {
         setUser(data.user)
         localStorage.setItem('user', JSON.stringify(data.user))

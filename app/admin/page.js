@@ -54,7 +54,7 @@ export default function AdminDashboard() {
             'Accept': 'application/json'
           }
         }),
-        fetch('http://127.0.0.1:8000/api/bookings?per_page=50', {
+        fetch('http://127.0.0.1:8000/api/bookings?per_page=10', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -70,66 +70,26 @@ export default function AdminDashboard() {
           const dashboardData = await dashboardResponse.json()
 
           if (dashboardData.success) {
-            // Handle bookings response
-            let allBookings = []
             if (bookingsResponse.ok) {
               const bookingsContentType = bookingsResponse.headers.get('content-type')
               if (bookingsContentType && bookingsContentType.includes('application/json')) {
                 const bookingsData = await bookingsResponse.json()
                 if (bookingsData.success) {
-                  allBookings = bookingsData.data
-                  setBookings(allBookings)
+                  setBookings(bookingsData.data)
                 }
               }
             }
 
-            // Calculate additional statistics from bookings
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const weekAgo = new Date(today)
-            weekAgo.setDate(weekAgo.getDate() - 7)
-            const monthAgo = new Date(today)
-            monthAgo.setMonth(monthAgo.getMonth() - 1)
-
-            const todayBookings = allBookings.filter(b => {
-              const bookingDate = new Date(b.start_time)
-              bookingDate.setHours(0, 0, 0, 0)
-              return bookingDate.getTime() === today.getTime()
-            })
-            const weekBookings = allBookings.filter(b => new Date(b.start_time) >= weekAgo)
-            const monthBookings = allBookings.filter(b => new Date(b.start_time) >= monthAgo)
-
-            // Calculate most used rooms
-            const roomUsage = {}
-            allBookings.forEach(b => {
-              if (b.room && b.room.name) {
-                roomUsage[b.room.name] = (roomUsage[b.room.name] || 0) + 1
-              }
-            })
-            const mostUsedRooms = Object.entries(roomUsage)
-              .map(([name, count]) => ({ name, count }))
-              .sort((a, b) => b.count - a.count)
-              .slice(0, 5)
-
-            // Calculate top users
-            const userBookings = {}
-            allBookings.forEach(b => {
-              if (b.user && b.user.name) {
-                userBookings[b.user.name] = (userBookings[b.user.name] || 0) + 1
-              }
-            })
-            const topUsers = Object.entries(userBookings)
-              .map(([name, count]) => ({ name, count }))
-              .sort((a, b) => b.count - a.count)
-              .slice(0, 5)
-
+            // Use backend calculated statistics
             setDashboardData({
               ...dashboardData.data,
-              today_bookings: todayBookings.length,
-              week_bookings: weekBookings.length,
-              month_bookings: monthBookings.length,
-              most_used_rooms: mostUsedRooms,
-              top_users: topUsers
+              // Backend now provides these fields directly
+              today_bookings: dashboardData.data.today_bookings || 0,
+              week_bookings: dashboardData.data.week_bookings || 0,
+              month_bookings: dashboardData.data.month_bookings || 0,
+              most_used_rooms: dashboardData.data.most_used_rooms || [],
+              top_users: dashboardData.data.top_users || [],
+              recent_bookings: dashboardData.data.recent_bookings || []
             })
           }
         }
@@ -474,10 +434,7 @@ export default function AdminDashboard() {
                   <span className="text-2xl mb-2">🏢</span>
                   <span className="text-xs font-bold">จัดการห้อง</span>
                 </Link>
-                <Link href="/admin/users" className="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors border border-purple-100">
-                  <span className="text-2xl mb-2">👥</span>
-                  <span className="text-xs font-bold">ผู้ใช้งาน</span>
-                </Link>
+
                 <Link href="/admin/settings" className="flex flex-col items-center justify-center p-4 rounded-2xl bg-gray-50 text-gray-700 hover:bg-gray-100 transition-colors border border-gray-100">
                   <span className="text-2xl mb-2">⚙️</span>
                   <span className="text-xs font-bold">ตั้งค่า</span>

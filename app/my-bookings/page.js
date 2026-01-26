@@ -57,7 +57,7 @@ export default function MyBookingsPage() {
   const fetchRecurringCount = async () => {
     if (!token) return
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/recurring-bookings', {
+      const response = await fetch('http://127.0.0.1:8000/api/recurring-bookings/stats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -66,7 +66,7 @@ export default function MyBookingsPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
-          setRecurringCount(data.data.length)
+          setRecurringCount(data.data.total)
         }
       }
     } catch (error) {
@@ -414,7 +414,7 @@ export default function MyBookingsPage() {
                           <StatusBadge status={booking.status} />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -425,6 +425,18 @@ export default function MyBookingsPage() {
                               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">เวลาที่จอง</p>
                               <p className="text-sm font-medium text-gray-900 mt-0.5">{formatDateTimeToThai(booking.start_time)}</p>
                               <p className="text-xs text-gray-500">ถึง {formatDateTimeToThai(booking.end_time)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ผู้จอง</p>
+                              <p className="text-sm font-medium text-gray-900 mt-0.5">{booking.user?.name || user?.name || '-'}</p>
                             </div>
                           </div>
 
@@ -655,3 +667,4 @@ export default function MyBookingsPage() {
     </div>
   )
 }
+

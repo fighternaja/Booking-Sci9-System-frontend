@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
+
+
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState({
     total_rooms: 0,
@@ -286,6 +288,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

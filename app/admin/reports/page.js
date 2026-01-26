@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../../contexts/AuthContext'
 
+import DashboardCharts from '../components/DashboardCharts'
+
 export default function AdminReportsPage() {
+
   const [reports, setReports] = useState({
     totalBookings: 0,
     approvedBookings: 0,
@@ -420,6 +423,9 @@ export default function AdminReportsPage() {
           </button>
         </div>
       </div>
+
+      {/* Charts Section */}
+      <DashboardCharts token={token} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">

@@ -45,16 +45,16 @@ export default function Navbar() {
         <div className="flex justify-between h-20">
           <div className="flex items-center">
             <Link href="/" className="flex items-center group">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mr-3 font-bold text-lg group-hover:scale-105 transition-all duration-300 shadow-md ${scrolled ? 'bg-gradient-to-br from-blue-600 to-indigo-600' : 'bg-white'
+              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center mr-2 md:mr-3 font-bold text-lg group-hover:scale-105 transition-all duration-300 shadow-md ${scrolled ? 'bg-gradient-to-br from-blue-600 to-indigo-600' : 'bg-white'
                 }`}>
-                <img src="/1729709782com2024.png" alt="Sci 9 Booking" className="w-10 h-10 object-contain" />
+                <img src="/1729709782com2024.png" alt="Sci 9 Booking" className="w-8 h-8 md:w-10 md:h-10 object-contain" />
               </div>
               <div className="flex flex-col">
-                <h1 className={`text-xl font-bold leading-none ${scrolled ? 'text-gray-900' : 'text-gray-800'
+                <h1 className={`text-lg md:text-xl font-bold leading-none ${scrolled ? 'text-gray-900' : 'text-gray-800'
                   }`}>
                   Sci 9 Booking
                 </h1>
-                <span className={`text-xs font-medium tracking-wider ${scrolled ? 'text-blue-600' : 'text-blue-500'
+                <span className={`text-[10px] md:text-xs font-medium tracking-wider ${scrolled ? 'text-blue-600' : 'text-blue-500'
                   }`}>
                   COMPUTER SCIENCE
                 </span>

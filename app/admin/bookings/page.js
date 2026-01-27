@@ -1,11 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '../../contexts/AuthContext'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import RescheduleModal from '../../components/RescheduleModal'
+import { useAuth } from '../../contexts/AuthContext'
+import { formatDateTimeToThai } from '../../utils/dateUtils'
+import AdminButton from '../components/AdminButton'
+import AdminCard from '../components/AdminCard'
+import AdminHeader from '../components/AdminHeader'
 
 export default function AdminBookingsPage() {
   // --- State ---
@@ -23,22 +26,26 @@ export default function AdminBookingsPage() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState(null)
 
-  // Equipment Modal State (retained for viewing equipment)
-  const [showEquipmentModal, setShowEquipmentModal] = useState(false)
-  const [selectedBookingId, setSelectedBookingId] = useState(null)
-  const [bookingEquipment, setBookingEquipment] = useState({}) // Store equipment data locally for modal
-
-  const { token, logout, user } = useAuth()
+  const { token, logout, user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // --- Effects ---
   useEffect(() => {
+    const statusParam = searchParams.get('status')
+    if (statusParam) {
+      setStatusFilter(statusParam)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (authLoading) return // Wait for auth to load
     if (!token) {
       router.push('/login')
       return
     }
     fetchBookings()
-  }, [token, statusFilter, startDate, endDate]) // Refetch when expensive filters change (optional, or clientside filter)
+  }, [token, authLoading, statusFilter, startDate, endDate])
 
   // --- Actions ---
 
@@ -160,18 +167,8 @@ export default function AdminBookingsPage() {
     if (!result.isConfirmed) return
 
     try {
-      // Use the specific cancel endpoint if available, or just update status ? 
-      // Checking backend controller: public function cancel(Request $request, Booking $booking) -> api/bookings/{id}/cancel is likely route, check routes?
-      // Usually RESTful: DELETE api/bookings/{id} or POST api/bookings/{id}/cancel
-      // Let's assume the cancel method in controller maps to a route.
-      // Based on previous code analysis, there was a performBulk using DELETE for cancel.
-      // Controller has `cancel` method.
-
-      // Let's try PUT update to status cancelled first as it's safer if route unknown, OR check controller "cancel" method above.
-      // Controller has `cancel` method.
-
       const res = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}/cancel`, {
-        method: 'POST', // or DELETE/PUT depending on routes. api.php usually: Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -180,7 +177,7 @@ export default function AdminBookingsPage() {
       })
 
       if (!res.ok) {
-        // Fallback if specific route fails, try generic update
+        // Fallback
         const res2 = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}`, {
           method: 'PUT',
           headers: {
@@ -224,226 +221,184 @@ export default function AdminBookingsPage() {
     })
   }
 
-  // --- Render Helpers ---
-  const StatusBadge = ({ status }) => {
-    const config = {
-      pending: { color: 'bg-yellow-100 text-yellow-800', label: 'รออนุมัติ' },
-      approved: { color: 'bg-green-100 text-green-800', label: 'อนุมัติแล้ว' },
-      rejected: { color: 'bg-red-100 text-red-800', label: 'ปฏิเสธ' },
-      cancelled: { color: 'bg-gray-100 text-gray-800', label: 'ยกเลิก' },
-    }
-    const c = config[status] || { color: 'bg-gray-100', label: status }
-
-    return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.color} border border-opacity-20`}>
-        {c.label}
-      </span>
-    )
-  }
-
-  const formatDateTime = (isoString) => {
-    if (!isoString) return '-'
-    const d = new Date(isoString)
-    return d.toLocaleString('th-TH', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    })
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top Bar */}
-      <div className="bg-white border-b sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">ระบบจัดการการจอง</h1>
-          <div className="flex gap-3">
-            <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100 transition">
-              Dashboard
-            </Link>
+    <div className="space-y-8">
+      {/* Header */}
+      <AdminHeader
+        title="จัดการการจอง"
+        subtitle="อนุมัติ ปฏิเสธ และจัดการการจองห้อง"
+      />
+
+      {/* Toolbar & Filters */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center sticky top-0 z-10">
+
+        {/* Status Tabs */}
+        <div className="flex bg-gray-100/50 p-1 rounded-xl overflow-x-auto max-w-full">
+          {[
+            { id: 'all', label: 'ทั้งหมด' },
+            { id: 'pending', label: 'รออนุมัติ' },
+            { id: 'approved', label: 'อนุมัติ' },
+            { id: 'rejected', label: 'ปฏิเสธ' },
+            { id: 'cancelled', label: 'ยกเลิก' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setStatusFilter(tab.id)
+                const params = new URLSearchParams(searchParams)
+                if (tab.id !== 'all') {
+                  params.set('status', tab.id)
+                } else {
+                  params.delete('status')
+                }
+                router.push(`?${params.toString()}`, { scroll: false })
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${statusFilter === tab.id
+                  ? 'bg-white text-blue-600 shadow-sm border border-gray-200/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Date */}
+        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+          <div className="relative flex-1 lg:w-64">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+            <input
+              type="text"
+              placeholder="ค้นหา..."
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
           </div>
+          <input
+            type="date"
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+          />
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
-
-        {/* Filtering Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 justify-between items-end lg:items-center">
-
-            {/* Status Tabs */}
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              {['all', 'pending', 'approved', 'cancelled'].map(s => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${statusFilter === s ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                  {s === 'all' ? 'ทั้งหมด' :
-                    s === 'pending' ? 'รออนุมัติ' :
-                      s === 'approved' ? 'อนุมัติแล้ว' : 'ยกเลิก/ปฏิเสธ'}
-                </button>
-              ))}
-            </div>
-
-            {/* Date & Search */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-              <div className="flex gap-2 items-center">
-                <input
-                  type="date"
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
-                />
-                <span className="text-gray-400">-</span>
-                <input
-                  type="date"
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
-                />
-              </div>
-              <input
-                type="text"
-                placeholder="ค้นหา ผู้จอง, ห้อง..."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
+      {/* Bookings List */}
+      <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
-            <div className="mt-2 text-gray-500">กำลังโหลด...</div>
+          <div className="space-y-4 animate-pulse">
+            {[1, 2, 3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-2xl"></div>)}
           </div>
         ) : error ? (
-          <div className="bg-red-50 text-red-700 p-4 rounded-xl text-center">
-            {error}
-            <button onClick={fetchBookings} className="ml-2 underline hover:text-red-800">ลองใหม่</button>
+          <div className="bg-red-50 border border-red-200 text-red-700 p-8 rounded-2xl text-center">
+            <p className="font-bold mb-2">เกิดข้อผิดพลาด</p>
+            <p className="text-sm">{error}</p>
+            <button onClick={fetchBookings} className="mt-4 text-red-600 hover:text-red-800 underline font-bold text-sm">
+              ลองใหม่
+            </button>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold">
-                  <tr>
-                    <th className="px-6 py-4">Booking Info</th>
-                    <th className="px-6 py-4">ผู้จอง</th>
-                    <th className="px-6 py-4">ห้อง/เวลา</th>
-                    <th className="px-6 py-4">สถานะ</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-sm">
-                  {getFilteredBookings().length > 0 ? getFilteredBookings().map(booking => (
-                    <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">#{booking.id}</div>
-                        <div className="text-gray-500 text-xs mt-1 truncate max-w-[150px]" title={booking.purpose}>
-                          {booking.purpose}
-                        </div>
-                        {/* Equipment Badges if any (Eager loaded) */}
-                        {booking.equipment && booking.equipment.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {booking.equipment.map(eq => (
-                              <span key={eq.id} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700">
-                                {eq.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{booking.user?.name || '-'}</div>
-                        <div className="text-gray-500 text-xs">{booking.user?.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-gray-900 font-medium">{booking.room?.name}</div>
-                        <div className="text-gray-500 text-xs mt-0.5">
-                          {formatDateTime(booking.start_time)}
-                          <br />
-                          ถึง {formatDateTime(booking.end_time)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={booking.status} />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
+        ) : getFilteredBookings().length > 0 ? (
+          getFilteredBookings().map(booking => (
+            <div key={booking.id} className="bg-white rounded-2xl border border-gray-100/50 p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
+              <div className="flex flex-col lg:flex-row gap-6">
 
-                          {booking.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(booking)}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-medium hover:bg-green-700 transition shadow-sm"
-                              >
-                                อนุมัติ
-                              </button>
-                              <button
-                                onClick={() => handleReject(booking)}
-                                className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-50 transition"
-                              >
-                                ปฏิเสธ
-                              </button>
-                            </>
-                          )}
+                {/* Time & Room (Left) */}
+                <div className="lg:w-1/4 flex flex-col justify-center border-b lg:border-b-0 lg:border-r border-gray-100 pb-4 lg:pb-0 lg:pr-6">
+                  <div className="text-sm font-bold text-blue-600 mb-1">{booking.room?.name}</div>
+                  <div className="text-xl font-bold text-gray-900 leading-tight">
+                    {formatDateTimeToThai(booking.start_time).split(' ')[0]}
+                  </div>
+                  <div className="text-gray-500 text-sm mt-1">
+                    {formatDateTimeToThai(booking.start_time).split(' ').slice(1).join(' ')} - {formatDateTimeToThai(booking.end_time).split(' ').slice(1).join(' ')}
+                  </div>
+                </div>
 
-                          {(booking.status === 'approved' || booking.status === 'pending') && (
-                            <>
-                              <button
-                                title="แก้ไข / เลื่อนเวลา"
-                                onClick={() => handleEdit(booking)}
-                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"
-                              >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                title="ยกเลิกการจอง"
-                                onClick={() => handleCancel(booking)}
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"
-                              >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </>
-                          )}
+                {/* Info (Middle) */}
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                        booking.status === 'approved' ? 'bg-green-50 text-green-700 border-green-100' :
+                          booking.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-100' :
+                            'bg-gray-50 text-gray-600 border-gray-100'
+                      }`}>
+                      {booking.status === 'pending' ? 'รออนุมัติ' :
+                        booking.status === 'approved' ? 'อนุมัติแล้ว' :
+                          booking.status === 'rejected' ? 'ถูกปฏิเสธ' : 'ยกเลิกแล้ว'}
+                    </span>
+                    <h3 className="font-bold text-gray-900">{booking.purpose || 'ไม่มีหัวข้อการประชุม'}</h3>
+                  </div>
 
-                        </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                        ไม่พบข้อมูลการจอง
-                      </td>
-                    </tr>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-1">
+                      <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs">👤</span>
+                      {booking.user?.name}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs">📧</span>
+                      {booking.user?.email}
+                    </div>
+                  </div>
+
+                  {booking.equipment && booking.equipment.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {booking.equipment.map(eq => (
+                        <span key={eq.id} className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600">
+                          + {eq.name}
+                        </span>
+                      ))}
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                </div>
 
-        {/* Reschedule Modal */}
-        {showRescheduleModal && selectedBooking && (
-          <RescheduleModal
-            isOpen={showRescheduleModal}
-            onClose={() => setShowRescheduleModal(false)}
-            booking={selectedBooking}
-            onRescheduleSuccess={() => {
-              setShowRescheduleModal(false)
-              fetchBookings()
-            }}
-          />
+                {/* Actions (Right) */}
+                <div className="flex flex-row lg:flex-col gap-2 justify-center lg:w-40 border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6">
+                  {booking.status === 'pending' && (
+                    <>
+                      <button onClick={() => handleApprove(booking)} className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2 px-4 rounded-xl text-sm transition-colors border border-green-200">
+                        อนุมัติ
+                      </button>
+                      <button onClick={() => handleReject(booking)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold py-2 px-4 rounded-xl text-sm transition-colors border border-red-200">
+                        ปฏิเสธ
+                      </button>
+                    </>
+                  )}
+                  {(booking.status === 'approved' || booking.status === 'pending') && (
+                    <button onClick={() => handleEdit(booking)} className="flex-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 font-medium py-2 px-4 rounded-xl text-sm transition-colors">
+                      แก้ไข
+                    </button>
+                  )}
+                  {(booking.status !== 'cancelled' && booking.status !== 'rejected') && (
+                    <button onClick={() => handleCancel(booking)} className="flex-1 text-gray-400 hover:text-red-600 hover:bg-red-50 font-medium py-2 px-4 rounded-xl text-sm transition-colors">
+                      ยกเลิก
+                    </button>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+            <span className="text-4xl block mb-4">📭</span>
+            <p className="text-gray-500 font-medium">ไม่พบข้อมูลการจอง</p>
+            <p className="text-gray-400 text-sm mt-1">ลองปรับตัวกรองหรือค้นหาคำอื่น</p>
+          </div>
         )}
       </div>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedBooking && (
+        <RescheduleModal
+          isOpen={showRescheduleModal}
+          onClose={() => setShowRescheduleModal(false)}
+          booking={selectedBooking}
+          onRescheduleSuccess={() => {
+            setShowRescheduleModal(false)
+            fetchBookings()
+          }}
+        />
+      )}
     </div>
   )
 }

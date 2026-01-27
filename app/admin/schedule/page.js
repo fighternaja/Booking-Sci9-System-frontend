@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import Swal from 'sweetalert2'
 import { useAuth } from '../../contexts/AuthContext'
-import { formatDateToThaiShort } from '../../utils/dateUtils'
+import { formatDateToThaiShort, parseDate, formatDateTimeToThai } from '../../utils/dateUtils'
+import AdminHeader from '../components/AdminHeader'
+import AdminCard from '../components/AdminCard'
+import AdminButton from '../components/AdminButton'
 
 export default function AdminSchedulePage() {
   const [rooms, setRooms] = useState([])
@@ -24,24 +27,26 @@ export default function AdminSchedulePage() {
   const [importError, setImportError] = useState('')
   const dateInputRef = useRef(null)
   const fileInputRef = useRef(null)
-  const { token, logout } = useAuth()
+  const { token, logout, loading: authLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
+    if (authLoading) return
     if (!token) {
       router.push('/login')
       return
     }
     fetchData()
-  }, [selectedDate, token])
+  }, [selectedDate, token, authLoading])
 
   useEffect(() => {
+    if (authLoading) return
     if (!token) {
       router.push('/login')
       return
     }
     fetchRooms()
-  }, [token])
+  }, [token, authLoading])
 
   const fetchRooms = async () => {
     if (!token) {
@@ -85,13 +90,6 @@ export default function AdminSchedulePage() {
         { id: 3, name: 'Sci9 204(COM)', description: '', capacity: 10, location: 'ชั้น 2 ห้อง 4' },
         { id: 4, name: 'Sci9 205(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 24, location: 'ชั้น 4 อาคาร B' },
         { id: 5, name: 'Sci9 301(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 49, location: 'ชั้น 3 ห้อง 1' },
-        { id: 6, name: 'Sci9 302(SmB)', description: 'ห้องเรียน', capacity: 50, location: 'ชั้น 3 ห้อง 2' },
-        { id: 7, name: 'Sci9 303(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 48, location: 'ชั้น 3 ห้อง 3' },
-        { id: 8, name: 'Sci9 304(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 40, location: 'ชั้น 3 ห้อง 4' },
-        { id: 9, name: 'Sci9 306(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 3 ห้อง 5' },
-        { id: 10, name: 'Sci9 402)', description: 'ห้องประชุม', capacity: 40, location: 'ชั้น 4 ห้อง 2' },
-        { id: 11, name: 'Sci9 403(Com)', description: 'ห้องคอมพิวเตอร์', capacity: 24, location: 'ชั้น 4 ห้อง 3' },
-        { id: 12, name: 'Sci9 405', description: 'ห้องเรียน', capacity: 48, location: 'ชั้น 4 ห้อง 5' }
       ]
       setRooms(mockRooms)
       setApiError(true)
@@ -150,12 +148,9 @@ export default function AdminSchedulePage() {
             setBookings([])
           }
         } else {
-          const text = await response.text()
-          console.error('Non-JSON response:', text)
           setBookings([])
         }
       } else {
-        // Mock data for development
         setBookings([])
       }
     } catch (error) {
@@ -234,16 +229,13 @@ export default function AdminSchedulePage() {
       })
     })
 
-    // Fallback to positional mapping if few headers found
     if (!headersFound || Object.keys(columnIndices).length < 2) {
-      // Assume order: Room, User, Start, End, Purpose, Notes
       columnIndices['room_name'] = 0
       columnIndices['user_name'] = 1
       columnIndices['start_time'] = 2
       columnIndices['end_time'] = 3
       columnIndices['purpose'] = 4
       columnIndices['notes'] = 5
-      // Section and Location optional/missing in basic fallback
     }
 
     const roomLookup = new Map(
@@ -268,9 +260,9 @@ export default function AdminSchedulePage() {
 
       const item = {
         id: `import_${index + 1}`,
-        room_name: rawRoom || 'ห้องระบุไม่ได้', // Default text if missing
+        room_name: rawRoom || 'ห้องระบุไม่ได้',
         user_name: row[columnIndices.user_name] || 'ไม่ระบุ',
-        start_time: startIso || new Date().toISOString(), // Fallback to now if invalid
+        start_time: startIso || new Date().toISOString(),
         end_time: endIso || new Date().toISOString(),
         purpose: displayPurpose,
         section: displaySection,
@@ -278,10 +270,10 @@ export default function AdminSchedulePage() {
         notes: row[columnIndices.notes] || '',
         status: 'pending',
         is_imported: true,
-        room_id: matchedRoom?.id || null // Keep null if not found
+        room_id: matchedRoom?.id || null
       }
       return item
-    }).filter(item => item.start_time && item.end_time) // Minimal filter
+    }).filter(item => item.start_time && item.end_time)
 
     return processedData
   }
@@ -298,16 +290,7 @@ export default function AdminSchedulePage() {
       return
     }
 
-    // Bypass room_id validation as requested
-    const validData = importedData // .filter(item => item.room_id)
-
-    // Remove the blocking check for validData.length === 0 relative to importedData.length
-    // if (validData.length === 0) ... (Removed)
-
-    // Just warn if room_id is missing but proceed if user confirms? 
-    // Actually user said "without checking anything". So we just proceed.
-
-    // (Optional: We could show a simple confirmation if we want, but user said "fix it" meaning "make it work")
+    const validData = importedData
 
     setImportLoading(true)
     setImportError('')
@@ -316,7 +299,7 @@ export default function AdminSchedulePage() {
       const payload = {
         bookings: validData.map(item => ({
           room_id: item.room_id,
-          room_name: item.room_name, // Send name for backend lookup if ID missing
+          room_name: item.room_name,
           start_time: item.start_time,
           end_time: item.end_time,
           purpose: item.purpose,
@@ -338,7 +321,7 @@ export default function AdminSchedulePage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        await fetchData() // Refresh bookings
+        await fetchData()
         setShowImportModal(false)
         setImportedData([])
 
@@ -379,48 +362,10 @@ export default function AdminSchedulePage() {
     }
   }
 
-  const getBookingsForRoom = (roomId) => {
-    return bookings.filter(booking => booking.room_id === roomId)
-  }
-
-  const getBookingsForDate = (date) => {
-    return bookings.filter(booking => {
-      const bookingDate = new Date(booking.start_time).toISOString().split('T')[0]
-      return bookingDate === date
-    })
-  }
-
-  const getBookingsForRoomAndDate = (roomId, date) => {
-    return bookings.filter(booking => {
-      const bookingDate = new Date(booking.start_time).toISOString().split('T')[0]
-      return booking.room_id === roomId && bookingDate === date
-    })
-  }
-
-  const getStatusBadge = (status) => {
-    const badges = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800'
-    }
-    return badges[status] || 'bg-gray-100 text-gray-800'
-  }
-
-  const getStatusText = (status) => {
-    const texts = {
-      pending: 'รออนุมัติ',
-      approved: 'อนุมัติแล้ว',
-      rejected: 'ปฏิเสธ',
-      cancelled: 'ยกเลิก'
-    }
-    return texts[status] || status
-  }
-
-  // Weekly timetable helpers
+  // Helper functions
   const getWeekStart = (date) => {
     const d = new Date(date)
-    const day = d.getDay() === 0 ? 7 : d.getDay() // Monday=1..Sunday=7
+    const day = d.getDay() === 0 ? 7 : d.getDay()
     const monday = new Date(d)
     monday.setDate(d.getDate() - (day - 1))
     monday.setHours(0, 0, 0, 0)
@@ -448,18 +393,6 @@ export default function AdminSchedulePage() {
     return slots
   }
 
-  const formatThaiDate = (d) => {
-    const thaiDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
-    const thaiMonthsShort = [
-      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
-    ]
-    const dayName = thaiDays[d.getDay()]
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = thaiMonthsShort[d.getMonth()]
-    return `${dayName} ${day} ${month}`
-  }
-
   const getThaiDayAbbr = (day) => {
     const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
     return dayNames[day.getDay()]
@@ -469,33 +402,15 @@ export default function AdminSchedulePage() {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
   }
 
-  const findBookingInSlot = (roomId, day, slot) => {
-    const [sh, sm] = slot.start.split(':').map(Number)
-    const [eh, em] = slot.end.split(':').map(Number)
-
-    const slotStart = new Date(day)
-    slotStart.setHours(sh, sm, 0, 0)
-    const slotEnd = new Date(day)
-    slotEnd.setHours(eh, em, 0, 0)
-
-    return bookings.find(b => {
-      if (roomId && b.room_id && b.room_id !== Number(roomId)) return false
-      const bs = new Date(b.start_time)
-      const be = new Date(b.end_time)
-      return (bs < slotEnd && be > slotStart) && isSameDay(bs, day)
-    })
-  }
-
-  // Build row cells with merged spans per booking
   const buildDayCells = (day, roomId) => {
     const slots = generateTimeSlots()
     const dayBookings = bookings
       .filter(b => {
         if (roomId && b.room_id && Number(roomId) !== b.room_id) return false
-        const bs = new Date(b.start_time)
+        const bs = parseDate(b.start_time)
         return isSameDay(bs, day)
       })
-      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+      .sort((a, b) => parseDate(a.start_time) - parseDate(b.start_time))
 
     let slotIndex = 0
     const cells = []
@@ -510,8 +425,8 @@ export default function AdminSchedulePage() {
       slotEnd.setHours(eh, em, 0, 0)
 
       const booking = dayBookings.find(b => {
-        const bs = new Date(b.start_time)
-        const be = new Date(b.end_time)
+        const bs = parseDate(b.start_time)
+        const be = parseDate(b.end_time)
         return (bs < slotEnd && be > slotStart)
       })
 
@@ -521,11 +436,9 @@ export default function AdminSchedulePage() {
         continue
       }
 
-      // Calculate how many slots the booking spans
-      const bookingStart = new Date(booking.start_time)
-      const bookingEnd = new Date(booking.end_time)
+      const bookingStart = parseDate(booking.start_time)
+      const bookingEnd = parseDate(booking.end_time)
 
-      // Clamp to day bounds
       const dayStart = new Date(day)
       dayStart.setHours(7, 0, 0, 0)
       const dayEnd = new Date(day)
@@ -545,11 +458,9 @@ export default function AdminSchedulePage() {
     return cells
   }
 
-  // Excel helpers
   const parseExcelDateTime = (value) => {
     if (!value) return ''
     if (typeof value === 'number') {
-      // Excel serial date
       const d = XLSX.SSF.parse_date_code(value)
       if (!d) return ''
       const date = new Date(Date.UTC(d.y, d.m - 1, d.d, d.H || 0, d.M || 0, d.S || 0))
@@ -558,9 +469,7 @@ export default function AdminSchedulePage() {
     if (value instanceof Date) {
       return new Date(value).toISOString()
     }
-    // Try to parse common string formats (including Buddhist year)
     const str = String(value).trim()
-    // If contains Buddhist year, convert to Gregorian
     const buddhistMatch = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?/)
     if (buddhistMatch) {
       const day = Number(buddhistMatch[1])
@@ -579,378 +488,318 @@ export default function AdminSchedulePage() {
 
   if (loading || roomsLoading) {
     return (
-      <div className="p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="h-12 bg-gray-200"></div>
-            <div className="space-y-2 p-4">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i} className="h-8 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="space-y-6">
+        <div className="h-20 bg-gray-200 rounded-2xl animate-pulse"></div>
+        <div className="h-40 bg-gray-200 rounded-2xl animate-pulse"></div>
+        <div className="h-96 bg-gray-200 rounded-2xl animate-pulse"></div>
       </div>
     )
   }
 
   return (
-    <div className="p-8">
-      {/* Error Alert */}
+    <div className="space-y-6">
       {apiError && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">แจ้งเตือน</h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p>{errorMessage}</p>
-                <p className="mt-1">กำลังใช้ข้อมูลจำลอง กรุณาตรวจสอบการเชื่อมต่อ API</p>
-              </div>
-            </div>
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 text-red-700 animate-fadeIn">
+          <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <div>
+            <h3 className="font-bold">เกิดข้อผิดพลาด</h3>
+            <p className="text-sm">{errorMessage}</p>
           </div>
         </div>
       )}
 
-      {/* Header Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">ตารางการใช้ห้อง</h1>
-        <p className="text-gray-600 mb-6">ศูนย์/สถานศึกษา แม่ริม อาคารคอมพิวเตอร์</p>
+      <AdminHeader
+        title="ตารางการใช้ห้อง"
+        subtitle="ตรวจสอบตารางการใช้งานห้องเรียนและห้องปฏิบัติการคอมพิวเตอร์"
+        actions={
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <AdminButton
+              onClick={() => fileInputRef.current?.click()}
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              }
+            >
+              นำเข้า Excel
+            </AdminButton>
+          </div>
+        }
+      />
 
-        {/* Controls Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">ห้อง</label>
+      <AdminCard>
+        <div className="flex flex-col lg:flex-row gap-6 justify-between items-end lg:items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full lg:w-auto flex-1">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">เลือกห้อง</label>
+              <div className="relative">
                 <select
                   value={selectedRoom}
                   onChange={(e) => setSelectedRoom(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 min-w-[200px]"
+                  className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-shadow"
                 >
                   <option value="">ทั้งหมด</option>
                   {rooms.map(r => (
                     <option key={r.id} value={r.id}>
-                      {r.name} : {r.description} ความจุ : {r.capacity}
+                      {r.name}
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">คุณลักษณะ</label>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">ปีการศึกษา</span>
-                    <select
-                      value={academicYear}
-                      onChange={(e) => setAcademicYear(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="2567">2567</option>
-                      <option value="2568">2568</option>
-                      <option value="2569">2569</option>
-                    </select>
-                  </div>
-
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => setSelectedSemester(1)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 1
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
-                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
-                        }`}
-                    >
-                      1
-                    </button>
-                    <button
-                      onClick={() => setSelectedSemester(2)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 2
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
-                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
-                        }`}
-                    >
-                      2
-                    </button>
-                    <button
-                      onClick={() => setSelectedSemester(3)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all shadow-sm ${selectedSemester === 3
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md transform scale-105'
-                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow'
-                        }`}
-                    >
-                      3
-                    </button>
-                  </div>
+                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    const currentDate = new Date(selectedDate)
-                    const prevWeek = new Date(currentDate)
-                    prevWeek.setDate(currentDate.getDate() - 7)
-                    const newDate = prevWeek.toISOString().split('T')[0]
-                    console.log('Moving to previous week:', newDate)
-                    setSelectedDate(newDate)
-                  }}
-                  className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
-                  title="สัปดาห์ก่อนหน้า"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-900">
-                    ระหว่าง {formatDateToThaiShort(weekStart)} - {formatDateToThaiShort(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const today = new Date()
-                      setSelectedDate(today.toISOString().split('T')[0])
-                    }}
-                    className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors mt-1"
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">ปีการศึกษา</label>
+                <div className="relative">
+                  <select
+                    value={academicYear}
+                    onChange={(e) => setAcademicYear(e.target.value)}
+                    className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-shadow"
                   >
-                    กลับไปสัปดาห์นี้
-                  </button>
+                    <option value="2567">2567</option>
+                    <option value="2568">2568</option>
+                    <option value="2569">2569</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
                 </div>
-
-                <button
-                  onClick={() => {
-                    const currentDate = new Date(selectedDate)
-                    const nextWeek = new Date(currentDate)
-                    nextWeek.setDate(currentDate.getDate() + 7)
-                    const newDate = nextWeek.toISOString().split('T')[0]
-                    console.log('Moving to next week:', newDate)
-                    setSelectedDate(newDate)
-                  }}
-                  className="p-2.5 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 hover:text-purple-800 rounded-lg transition-all shadow-sm hover:shadow-md"
-                  title="สัปดาห์ถัดไป"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
               </div>
-
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                นำเข้า Excel
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">เทอม</label>
+                <div className="flex bg-gray-100 p-1 rounded-xl h-[42px]">
+                  {[1, 2, 3].map(sem => (
+                    <button
+                      key={sem}
+                      onClick={() => setSelectedSemester(sem)}
+                      className={`flex-1 rounded-lg text-sm font-bold transition-all ${selectedSemester === sem
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                    >
+                      {sem}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Weekly timetable */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {rooms.length === 0 ? (
-            <div className="p-8 text-center">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">ไม่พบข้อมูลห้อง</h3>
-              <p className="text-gray-600">กรุณาตรวจสอบการเชื่อมต่อ API หรือลองรีเฟรชหน้า</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr>
-                    <th className="bg-gray-700 text-white px-4 py-3 text-center text-sm font-medium border border-gray-400">
-                      วัน/เวลา
-                    </th>
-                    {generateTimeSlots().map((slot, idx) => (
-                      <th key={idx} className="bg-gray-700 text-white px-2 py-3 text-center text-xs font-medium border border-gray-400">
-                        {slot.start}-{slot.end}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {getWeekDays().map((day, dayIdx) => {
-                    const isWeekend = day.getDay() === 0 || day.getDay() === 6
-                    const isToday = isSameDay(day, new Date())
-                    return (
-                      <tr key={dayIdx} className={isWeekend ? 'bg-red-50' : isToday ? 'bg-blue-50' : 'bg-white'}>
-                        <td className={`px-4 py-3 text-sm font-medium text-center border border-gray-300 ${isWeekend ? 'bg-red-100 text-red-800' : isToday ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                          <div className="flex flex-col items-center">
-                            <span>{getThaiDayAbbr(day)}</span>
-                            <span className="text-xs font-normal">
-                              {String(day.getDate()).padStart(2, '0')}/{String(day.getMonth() + 1).padStart(2, '0')}
-                            </span>
-                            {isToday && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded mt-1">วันนี้</span>}
-                          </div>
-                        </td>
-                        {buildDayCells(day, selectedRoom || null).map((cell, idx) => {
-                          const bookingStatus = cell.booking?.status || 'approved'
-                          const statusColors = {
-                            approved: 'bg-green-100 border-green-300 text-green-900',
-                            pending: 'bg-yellow-100 border-yellow-300 text-yellow-900',
-                            rejected: 'bg-red-100 border-red-300 text-red-900',
-                            cancelled: 'bg-gray-100 border-gray-300 text-gray-700'
-                          }
-                          return (
-                            <td
-                              key={idx}
-                              colSpan={cell.span}
-                              className={`px-1 py-1 align-top border border-gray-300 ${isWeekend ? 'bg-red-50' : isToday ? 'bg-blue-50' : 'bg-white'}`}
-                            >
-                              {cell.type === 'booking' ? (
-                                <div className={`${statusColors[bookingStatus] || statusColors.approved} border rounded p-1.5 text-xs h-full min-h-[48px] flex flex-col justify-center items-center text-center`}>
-                                  <div className="font-semibold mb-0.5 truncate w-full">{cell.booking.purpose || 'การจอง'}</div>
-                                  <div className="text-xs truncate w-full">{cell.booking.section || cell.booking.user?.name || 'ไม่ระบุ'}</div>
-                                  <div className="text-xs truncate w-full mt-0.5 opacity-80">{cell.booking.location || cell.booking.room?.name || rooms.find(r => r.id === cell.booking.room_id)?.name || 'ไม่ระบุ'}</div>
-                                </div>
-                              ) : (
-                                <div className={`h-12 ${isWeekend ? 'bg-red-50' : isToday ? 'bg-blue-50' : 'bg-white'}`}></div>
-                              )}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+          <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl w-full lg:w-auto justify-between lg:justify-start">
+            <button
+              onClick={() => {
+                const currentDate = new Date(selectedDate)
+                const prevWeek = new Date(currentDate)
+                prevWeek.setDate(currentDate.getDate() - 7)
+                setSelectedDate(prevWeek.toISOString().split('T')[0])
+              }}
+              className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-gray-600 transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">ตรวจสอบข้อมูลที่นำเข้า</h3>
+            <div className="text-center min-w-[200px]">
+              <div className="text-sm font-bold text-gray-900">
+                {formatDateToThaiShort(weekStart)} - {formatDateToThaiShort(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
+              </div>
               <button
-                onClick={() => setShowImportModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline mt-0.5"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                กลับไปสัปดาห์นี้
               </button>
             </div>
 
-            <div className="p-6">
-              {importError && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <p className="text-red-800">{importError}</p>
-                  </div>
-                </div>
-              )}
+            <button
+              onClick={() => {
+                const currentDate = new Date(selectedDate)
+                const nextWeek = new Date(currentDate)
+                nextWeek.setDate(currentDate.getDate() + 7)
+                setSelectedDate(nextWeek.toISOString().split('T')[0])
+              }}
+              className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-gray-600 transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+      </AdminCard>
 
-              {importedData.length > 0 ? (
-                <div className="overflow-x-auto border rounded-lg max-h-[60vh] mt-4">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้อง</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้จอง</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เวลา</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {importedData.map((item, index) => (
-                        <tr key={index} className={!item.room_id ? 'bg-red-50' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {item.room_name}
-                            {!item.room_id && <div className="text-red-500 text-xs mt-1">(ไม่พบห้องนี้ในระบบ)</div>}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.user_name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div>{formatDateToThaiShort(new Date(item.start_time))}</div>
-                            <div className="text-xs text-gray-400">
-                              {new Date(item.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} -
-                              {new Date(item.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {rooms.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">ไม่พบข้อมูลห้อง</h3>
+            <p className="text-gray-500">กรุณาตรวจสอบการเชื่อมต่อ API หรือลองรีเฟรชหน้า</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-10 bg-gray-50/95 backdrop-blur text-gray-700 px-4 py-3 text-center text-xs font-bold uppercase tracking-wider border-b border-r border-gray-200 min-w-[100px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    วัน/เวลา
+                  </th>
+                  {generateTimeSlots().map((slot, idx) => (
+                    <th key={idx} className="bg-gray-50 text-gray-600 px-2 py-3 text-center text-xs font-bold uppercase tracking-wider border-b border-r border-gray-200 min-w-[80px]">
+                      {slot.start}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white">
+                {getWeekDays().map((day, dayIdx) => {
+                  const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                  const isToday = isSameDay(day, new Date())
+                  return (
+                    <tr key={dayIdx} className={isWeekend ? 'bg-gray-50/50' : ''}>
+                      <td className={`sticky left-0 z-10 px-4 py-3 text-center border-b border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${isToday ? 'bg-blue-50/90 text-blue-700 font-bold' : 'bg-white text-gray-900 font-medium'
+                        }`}>
+                        <div className="flex flex-col">
+                          <span className="text-sm">{getThaiDayAbbr(day)}</span>
+                          <span className="text-xs opacity-75">{day.getDate()}</span>
+                        </div>
+                      </td>
+                      {buildDayCells(day, selectedRoom).map((cell, cellIdx) => {
+                        if (cell.type === 'empty') {
+                          return <td key={cellIdx} className="border-b border-r border-gray-100/50 p-1 h-14" />
+                        }
+                        const b = cell.booking
+                        const statusColors = {
+                          pending: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
+                          approved: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+                          rejected: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+                          cancelled: 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'
+                        }
+                        return (
+                          <td
+                            key={cellIdx}
+                            colSpan={cell.span}
+                            className="p-1 h-14 border-b border-r border-gray-100/50 relative group"
+                          >
+                            <div className={`w-full h-full rounded-lg text-xs p-1.5 border overflow-hidden cursor-help transition-all shadow-sm ${statusColors[b.status] || 'bg-gray-100'}`}>
+                              <div className="font-bold truncate">{b.purpose || 'จอง'}</div>
+                              <div className="truncate opacity-75">{b.user_name}</div>
+
+                              <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white p-3 rounded-xl shadow-xl text-xs text-left animate-fadeIn">
+                                <div className="font-bold text-sm mb-1 text-white border-b border-gray-700 pb-1">{b.purpose}</div>
+                                <div className="space-y-1 text-gray-300">
+                                  <p>👤 {b.user_name}</p>
+                                  <p>🕒 {formatDateTimeToThai(b.start_time)} - {formatDateTimeToThai(b.end_time).split(' ')[1]}</p>
+                                  <p>📍 {b.room_name}</p>
+                                  <p>📝 {b.notes || '-'}</p>
+                                </div>
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900"></div>
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="font-medium">{item.purpose}</div>
-                            {item.section && <div className="text-xs">Sec: {item.section}</div>}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {item.room_id ? (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                พร้อมนำเข้า
-                              </span>
-                            ) : (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                ข้อมูลผิดพลาด
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 flex items-start">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-900">รูปแบบไฟล์ Excel ที่รองรับ</h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <p>รองรับไฟล์ Excel ที่มีหัวข้อคอลัมน์ หรือไฟล์ที่ไม่มีหัวข้อ (เรียงลำดับ: ชื่อห้อง, ผู้จอง, เวลาเริ่ม, เวลาสิ้นสุด, วัตถุประสงค์)</p>
-                      <p className="mt-1 text-xs text-blue-600">
-                        * ระบบจะสร้างห้องให้อัตโนมัติหากไม่พบข้อมูล และปรับเวลาให้อัตโนมัติหากไม่ถูกต้อง
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scaleIn">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">ยืนยันการนำเข้าข้อมูล</h3>
+                <p className="text-sm text-gray-500 mt-1">พบข้อมูล {importedData.length} รายการจากไฟล์ Excel</p>
+              </div>
               <button
                 onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-6">
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">ห้อง</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">ผู้จอง</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วัน/เวลา</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วิชา/รายละเอียด</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {importedData.slice(0, 100).map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {item.room_name}
+                          {!item.room_id && <span className="ml-2 text-xs text-red-500 bg-red-50 px-1.5 py-0.5 rounded">ไม่พบในระบบ</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.user_name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <div>{formatDateToThaiShort(new Date(item.start_time))}</div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(item.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} -
+                            {new Date(item.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <div className="font-medium">{item.purpose}</div>
+                          <div className="text-xs text-gray-500">{item.section !== 'ไม่ระบุ' && `Sec: ${item.section}`}</div>
+                        </td>
+                      </tr>
+                    ))}
+                    {importedData.length > 100 && (
+                      <tr>
+                        <td colSpan="4" className="px-4 py-3 text-center text-sm text-gray-500 italic bg-gray-50">
+                          ... และอีก {importedData.length - 100} รายการ
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-bold hover:bg-white transition-all shadow-sm"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleImportConfirm}
                 disabled={importLoading}
-                className="px-6 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
               >
-                {importLoading ? 'กำลังนำเข้า...' : 'ยืนยันการนำเข้า'}
+                {importLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    กำลังนำเข้า...
+                  </>
+                ) : (
+                  'ยืนยันนำเข้าข้อมูล'
+                )}
               </button>
             </div>
           </div>

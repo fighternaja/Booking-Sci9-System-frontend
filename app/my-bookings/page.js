@@ -29,7 +29,7 @@ export default function MyBookingsPage() {
     notes: ''
   })
 
-  const { user, token, logout } = useAuth()
+  const { user, token, logout, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -41,6 +41,7 @@ export default function MyBookingsPage() {
   }, [searchParams])
 
   useEffect(() => {
+    if (authLoading) return // Wait for auth
     if (!user) {
       router.push('/login')
       return
@@ -52,7 +53,7 @@ export default function MyBookingsPage() {
     fetchBookings()
     fetchAvailableEquipment()
     fetchRecurringCount()
-  }, [user, token, router])
+  }, [user, token, router, authLoading])
 
   const fetchRecurringCount = async () => {
     if (!token) return
@@ -288,9 +289,16 @@ export default function MyBookingsPage() {
     )
   }
 
+  const handleTabChange = (id) => {
+    setFilter(id)
+    const params = new URLSearchParams(searchParams)
+    params.set('tab', id)
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
+
   const TabButton = ({ id, label, icon, count }) => (
     <button
-      onClick={() => setFilter(id)}
+      onClick={() => handleTabChange(id)}
       className={`
         relative px-6 py-3 text-sm font-medium transition-all duration-300 rounded-lg flex items-center gap-2
         ${filter === id

@@ -1,4 +1,26 @@
-// Utility functions for date formatting
+// Helper to parse date string safely, defaulting to UTC if timezone is missing
+export const parseDate = (date) => {
+  if (!date) return null
+  let dateStr = String(date).trim()
+  if (dateStr.includes(' ')) {
+    dateStr = dateStr.replace(' ', 'T')
+  }
+  // Treat as local time (do not append Z)
+  return new Date(dateStr)
+}
+
+// Format date to YYYY-MM-DD HH:mm:ss (Local) for Backend
+export const formatDateForBackend = (date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hour = String(d.getHours()).padStart(2, '0')
+  const minute = String(d.getMinutes()).padStart(2, '0')
+  const second = String(d.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`
+}
 
 // Format date from YYYY-MM-DD to DD/MM/YYYY
 export const formatDateToDDMMYYYY = (dateString) => {
@@ -16,8 +38,8 @@ export const convertDDMMYYYYToISO = (dateString) => {
 
 // Format date to Thai format (DD/MM/YYYY)
 export const formatDateToThai = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return ''
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear()
@@ -26,8 +48,8 @@ export const formatDateToThai = (date) => {
 
 // จัดรูปแบบวันที่และเวลาให้อยู่ในรูปแบบไทย (วัน/เดือน/ปี พ.ศ. ชั่วโมง:นาที)
 export const formatDateTimeToThai = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return ''
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear() + 543 // แปลงเป็น พ.ศ.
@@ -38,8 +60,8 @@ export const formatDateTimeToThai = (date) => {
 
 // แยกวันที่และเวลา - คืนค่าเป็น object { date, time }
 export const splitDateTimeToThai = (date) => {
-  if (!date) return { date: '', time: '' }
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return { date: '', time: '' }
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear() + 543 // แปลงเป็น พ.ศ.
@@ -53,8 +75,8 @@ export const splitDateTimeToThai = (date) => {
 
 // จัดรูปแบบวันที่และเวลาให้อยู่ในรูปแบบไทยพร้อมชื่อเดือน
 export const formatDateTimeToThaiFull = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return ''
   const thaiMonths = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
@@ -69,8 +91,8 @@ export const formatDateTimeToThaiFull = (date) => {
 
 // จัดรูปแบบวันที่เป็นรูปแบบไทย (วัน/เดือน/ปี พ.ศ.)
 export const formatDateToThaiShort = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return ''
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear() + 543 // แปลงเป็น พ.ศ.
@@ -79,8 +101,8 @@ export const formatDateToThaiShort = (date) => {
 
 // จัดรูปแบบวันที่พร้อมชื่อเดือนย่อ (วัน เดือนย่อ ปี พ.ศ.)
 export const formatDateToThaiWithShortMonth = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return ''
   const thaiMonthsShort = [
     'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
     'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
@@ -93,8 +115,8 @@ export const formatDateToThaiWithShortMonth = (date) => {
 
 // จัดรูปแบบวันที่พร้อมชื่อวันย่อ (วันย่อ วัน/เดือน/ปี พ.ศ.)
 export const formatDateToThaiWithDay = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
+  const d = parseDate(date)
+  if (!d) return ''
   const thaiDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
   const thaiMonthsShort = [
     'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -134,11 +156,11 @@ export const convertDDMMYYYYToISOWithTime = (dateTimeString) => {
   if (!dateTimeString) return ''
   const [datePart, timePart] = dateTimeString.split(' ')
   if (!datePart || !timePart) return ''
-  
+
   const [day, month, year] = datePart.split('/')
   const [hour, minute] = timePart.split(':')
-  
+
   if (!day || !month || !year || !hour || !minute) return ''
-  
+
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
 }

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../contexts/AuthContext'
+import { formatDateForBackend } from '../utils/dateUtils'
 
 export default function BookingModal({ isOpen, onClose, selectedDate, room, onBookingSuccess }) {
   const [formData, setFormData] = useState({
@@ -139,7 +140,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
 
         // ตรวจสอบว่า endTime มากกว่า startTime จริงๆ
         if (end > start) {
-          checkAvailability(start.toISOString(), end.toISOString())
+          checkAvailability(formatDateForBackend(start), formatDateForBackend(end))
         } else {
           console.warn('End time must be after start time')
         }
@@ -164,9 +165,9 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
 
     setCheckingAvailability(true)
     try {
-      // แปลงเป็น ISO 8601 format สำหรับ Laravel
-      const startISO = new Date(startTime).toISOString()
-      const endISO = new Date(endTime).toISOString()
+      // Formatted for Backend (Local Time) to ensure precise matching
+      const startISO = formatDateForBackend(startTime)
+      const endISO = formatDateForBackend(endTime)
 
       const response = await fetch(`http://127.0.0.1:8000/api/rooms/${room.id}/check-availability`, {
         method: 'POST',
@@ -227,14 +228,14 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       const end = new Date(`${baseDate}T${formData.end_time}:00`)
       // ตรวจสอบว่า endTime มากกว่า startTime
       if (end > start) {
-        checkAvailability(start.toISOString(), end.toISOString())
+        checkAvailability(formatDateForBackend(start), formatDateForBackend(end))
       }
     } else if (name === 'end_time' && baseDate && formData.start_time) {
       const start = new Date(`${baseDate}T${formData.start_time}:00`)
       const end = new Date(`${baseDate}T${value}:00`)
       // ตรวจสอบว่า endTime มากกว่า startTime
       if (end > start) {
-        checkAvailability(start.toISOString(), end.toISOString())
+        checkAvailability(formatDateForBackend(start), formatDateForBackend(end))
       }
     }
   }
@@ -316,9 +317,9 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       return
     }
 
-    // แปลงเป็น ISO 8601 string ที่มี timezone offset
-    const fullStartTime = startTime.toISOString()
-    const fullEndTime = endTime.toISOString()
+    // Formatted for Backend (Local Time)
+    const fullStartTime = formatDateForBackend(startTime)
+    const fullEndTime = formatDateForBackend(endTime)
 
     if (startTime >= endTime) {
       setError('เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด')
@@ -694,8 +695,8 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slideUp">
+    <div className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-end md:items-center justify-center z-50 p-0 md:p-4 animate-fadeIn">
+      <div className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full md:max-w-2xl max-h-[90vh] md:max-h-[90vh] overflow-hidden flex flex-col animate-slideUp">
         {/* Header - Clean & Simple */}
         <div className="bg-white border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">

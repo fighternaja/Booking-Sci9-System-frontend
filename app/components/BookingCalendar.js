@@ -7,6 +7,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import BookingModal from './BookingModal'
 import Swal from 'sweetalert2'
 import './CalendarStyles.css'
+import { parseDate } from '../utils/dateUtils'
 
 // ตั้งค่า moment locale เป็นภาษาไทย
 moment.locale('th')
@@ -60,8 +61,8 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
           .map(booking => ({
             id: booking.id,
             title: booking.purpose,
-            start: new Date(booking.start_time),
-            end: new Date(booking.end_time),
+            start: parseDate(booking.start_time),
+            end: parseDate(booking.end_time),
             resource: booking
           }))
         setEvents(calendarEvents)
@@ -213,8 +214,8 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
     }
 
     return (
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+        <div className="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-start">
           <button
             onClick={() => handleNavigate('PREV')}
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -225,7 +226,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
             </svg>
           </button>
 
-          <h2 className="text-xl font-semibold text-gray-900 min-w-[200px] text-center">{label}</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900 flex-1 text-center md:min-w-[200px]">{label}</h2>
 
           <button
             onClick={() => handleNavigate('NEXT')}
@@ -238,7 +239,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
           </button>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full md:w-auto justify-center">
           <button
             onClick={() => handleNavigate('TODAY')}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -247,37 +248,20 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
             วันนี้
           </button>
 
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => handleViewChange('month')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${currentView === 'month'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-                }`}
-              type="button"
-            >
-              เดือน
-            </button>
-            <button
-              onClick={() => handleViewChange('week')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${currentView === 'week'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-                }`}
-              type="button"
-            >
-              สัปดาห์
-            </button>
-            <button
-              onClick={() => handleViewChange('day')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${currentView === 'day'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-                }`}
-              type="button"
-            >
-              วัน
-            </button>
+          <div className="flex bg-gray-100 rounded-lg p-1 overflow-x-auto">
+            {['month', 'week', 'day', 'agenda'].map((v) => (
+              <button
+                key={v}
+                onClick={() => handleViewChange(v)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${currentView === v
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                type="button"
+              >
+                {v === 'month' ? 'เดือน' : v === 'week' ? 'สัปดาห์' : v === 'day' ? 'วัน' : 'กำหนดการ'}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -308,12 +292,12 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 md:p-6">
       <div className="mb-6">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">จองห้อง</h3>
+        <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">จองห้อง</h3>
       </div>
 
-      <div className="h-[600px] mb-6">
+      <div className="h-[500px] md:h-[600px] mb-6">
         <Calendar
           localizer={localizer}
           events={events}
@@ -324,7 +308,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
           onSelectEvent={handleSelectEvent}
           selectable
           popup
-          views={['month', 'week', 'day']}
+          views={['month', 'week', 'day', 'agenda']}
           view={view}
           onView={setView}
           date={currentDate}

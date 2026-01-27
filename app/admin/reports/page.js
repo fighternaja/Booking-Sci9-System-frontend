@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../../contexts/AuthContext'
-
+import AdminHeader from '../components/AdminHeader'
+import AdminCard from '../components/AdminCard'
+import AdminButton from '../components/AdminButton'
+import StatCard from '../components/StatCard'
 import DashboardCharts from '../components/DashboardCharts'
 
 export default function AdminReportsPage() {
-
   const [reports, setReports] = useState({
     totalBookings: 0,
     approvedBookings: 0,
@@ -79,8 +81,6 @@ export default function AdminReportsPage() {
       const peakHours = calculatePeakHours(allBookings)
       const demandByDay = calculateDemandByDay(allBookings)
       const statusDist = calculateStatusDistribution(allBookings)
-      const trendData = calculateTrendData(allBookings)
-      const heatMap = calculateHeatMap(allBookings)
 
       setReports({
         totalBookings: dashboardStats.total_bookings || 0,
@@ -173,57 +173,11 @@ export default function AdminReportsPage() {
     })
     const total = bookings.length || 1
     return [
-      { status: 'อนุมัติ', count: statusCounts.approved, color: 'from-green-500 to-green-600', percentage: ((statusCounts.approved / total) * 100).toFixed(1) },
-      { status: 'รออนุมัติ', count: statusCounts.pending, color: 'from-yellow-500 to-yellow-600', percentage: ((statusCounts.pending / total) * 100).toFixed(1) },
-      { status: 'ปฏิเสธ', count: statusCounts.rejected, color: 'from-red-500 to-red-600', percentage: ((statusCounts.rejected / total) * 100).toFixed(1) },
-      { status: 'ยกเลิก', count: statusCounts.cancelled, color: 'from-gray-500 to-gray-600', percentage: ((statusCounts.cancelled / total) * 100).toFixed(1) }
+      { status: 'อนุมัติ', count: statusCounts.approved, color: 'green', percentage: ((statusCounts.approved / total) * 100).toFixed(1) },
+      { status: 'รออนุมัติ', count: statusCounts.pending, color: 'orange', percentage: ((statusCounts.pending / total) * 100).toFixed(1) },
+      { status: 'ปฏิเสธ', count: statusCounts.rejected, color: 'red', percentage: ((statusCounts.rejected / total) * 100).toFixed(1) },
+      { status: 'ยกเลิก', count: statusCounts.cancelled, color: 'gray', percentage: ((statusCounts.cancelled / total) * 100).toFixed(1) }
     ]
-  }
-
-  // Advanced Analytics: Trend Analysis (Last 30 days)
-  const calculateTrendData = (bookings) => {
-    const last30Days = []
-    const today = new Date()
-
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      date.setHours(0, 0, 0, 0)
-
-      const nextDate = new Date(date)
-      nextDate.setDate(nextDate.getDate() + 1)
-
-      const count = bookings.filter(b => {
-        const bookingDate = new Date(b.start_time)
-        return bookingDate >= date && bookingDate < nextDate
-      }).length
-
-      last30Days.push({
-        date: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
-        count
-      })
-    }
-
-    return last30Days
-  }
-
-  // Advanced Analytics: Heat Map (Day x Hour)
-  const calculateHeatMap = (bookings) => {
-    const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-    const hours = Array.from({ length: 15 }, (_, i) => i + 6) // 6:00 - 20:00
-
-    const heatMapData = dayNames.map((day, dayIndex) => {
-      const hourData = hours.map(hour => {
-        const count = bookings.filter(b => {
-          const date = new Date(b.start_time)
-          return date.getDay() === dayIndex && date.getHours() === hour
-        }).length
-        return count
-      })
-      return { day, hours: hourData }
-    })
-
-    return { data: heatMapData, hours }
   }
 
   const exportToExcel = async () => {
@@ -295,7 +249,6 @@ export default function AdminReportsPage() {
         })
         const bookingsSheet = XLSX.utils.json_to_sheet(bookingsData)
 
-        // Set column widths for better readability
         bookingsSheet['!cols'] = [
           { wch: 20 }, // ชื่อผู้ใช้
           { wch: 25 }, // ห้อง
@@ -329,12 +282,12 @@ export default function AdminReportsPage() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: 'bg-yellow-100 text-yellow-700 border border-yellow-200',
-      approved: 'bg-green-100 text-green-700 border border-green-200',
-      rejected: 'bg-red-100 text-red-700 border border-red-200',
-      cancelled: 'bg-gray-100 text-gray-700 border border-gray-200'
+      pending: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+      approved: 'bg-green-50 text-green-700 border-green-100',
+      rejected: 'bg-red-50 text-red-700 border-red-100',
+      cancelled: 'bg-gray-50 text-gray-700 border-gray-100'
     }
-    return badges[status] || 'bg-gray-100 text-gray-700'
+    return badges[status] || 'bg-gray-50 text-gray-700 border-gray-100'
   }
 
   const filteredBookings = reports.allBookings.filter(booking => {
@@ -349,47 +302,41 @@ export default function AdminReportsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-gray-100 rounded-xl"></div>
-            ))}
-          </div>
+      <div className="space-y-8">
+        <div className="h-10 bg-gray-100 rounded-xl animate-pulse w-1/3"></div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse"></div>
+          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">📊 รายงานการจองห้อง</h1>
-        <p className="text-gray-600 mb-6">รายงานและการวิเคราะห์ข้อมูลการจองห้องแบบครบถ้วน</p>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Search */}
+      <AdminHeader
+        title="รายงานการจองห้อง"
+        subtitle="รายงานและการวิเคราะห์ข้อมูลการจองห้องแบบครบถ้วน"
+        actions={
+          <div className="flex items-center gap-3">
             <div className="relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="ค้นหาชื่อผู้จอง หรือห้อง..."
-                className="w-80 px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="ค้นหา..."
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm w-64"
               />
-              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm bg-white"
             >
               <option value="all">ทุกสถานะ</option>
               <option value="approved">อนุมัติแล้ว</option>
@@ -397,125 +344,74 @@ export default function AdminReportsPage() {
               <option value="rejected">ปฏิเสธ</option>
               <option value="cancelled">ยกเลิก</option>
             </select>
+            <AdminButton
+              onClick={exportToExcel}
+              disabled={exportLoading}
+              variant="secondary"
+              icon={exportLoading ?
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                :
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              }
+            >
+              {exportLoading ? 'กำลังส่งออก...' : 'Export Excel'}
+            </AdminButton>
           </div>
+        }
+      />
 
-          <button
-            onClick={exportToExcel}
-            disabled={exportLoading}
-            className="inline-flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-          >
-            {exportLoading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                กำลังส่งออก...
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                ส่งออก Excel
-              </>
-            )}
-          </button>
-        </div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <StatCard label="การจองทั้งหมด" value={reports.totalBookings} icon="📅" color="blue" description="รายการทั้งหมดในระบบ" />
+        <StatCard label="อนุมัติแล้ว" value={reports.approvedBookings} icon="✅" color="green" description="การจองที่ยืนยันแล้ว" />
+        <StatCard label="รออนุมัติ" value={reports.pendingBookings} icon="⏳" color="orange" description="รอการตรวจสอบ" />
+        <StatCard label="ปฏิเสธ" value={reports.rejectedBookings} icon="❌" color="red" description="ไม่อนุมัติการจอง" />
+        <StatCard label="ยกเลิก" value={reports.cancelledBookings} icon="🚫" color="gray" description="ผู้ใช้ยกเลิก" />
       </div>
 
       {/* Charts Section */}
       <DashboardCharts token={token} />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">📅</span>
-            <span className="text-3xl font-bold">{reports.totalBookings}</span>
-          </div>
-          <p className="text-blue-100 text-sm">การจองทั้งหมด</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">✅</span>
-            <span className="text-3xl font-bold">{reports.approvedBookings}</span>
-          </div>
-          <p className="text-green-100 text-sm">อนุมัติแล้ว</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">⏳</span>
-            <span className="text-3xl font-bold">{reports.pendingBookings}</span>
-          </div>
-          <p className="text-yellow-100 text-sm">รออนุมัติ</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">❌</span>
-            <span className="text-3xl font-bold">{reports.rejectedBookings}</span>
-          </div>
-          <p className="text-red-100 text-sm">ปฏิเสธ</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">🚫</span>
-            <span className="text-3xl font-bold">{reports.cancelledBookings}</span>
-          </div>
-          <p className="text-gray-100 text-sm">ยกเลิก</p>
-        </div>
-      </div>
-
       {/* Bookings Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="p-6 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center">
-            <span className="text-2xl mr-2">📋</span>
-            รายการจองทั้งหมด ({filteredBookings.length})
-          </h3>
-        </div>
+      <AdminCard title={`รายการจองทั้งหมด (${filteredBookings.length})`} icon="📋" noPadding className="overflow-hidden">
         <div className="overflow-x-auto">
           {filteredBookings.length === 0 ? (
             <div className="p-12 text-center text-gray-400">
               ไม่พบข้อมูลการจอง
             </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
+            <table className="min-w-full">
+              <thead className="bg-gray-50/50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ห้อง</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ผู้จอง</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">วันที่</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">เวลา</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">สถานะ</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ห้อง</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้จอง</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">วันที่</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">เวลา</th>
+                  <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">สถานะ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {filteredBookings.slice(0, 50).map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{booking.room?.name || '-'}</div>
+                  <tr key={booking.id} className="hover:bg-blue-50/50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                      {booking.room?.name || '-'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold mr-2">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold mr-3 border border-blue-200">
                           {booking.user?.name?.charAt(0).toUpperCase() || '?'}
                         </div>
-                        <span className="text-sm text-gray-900">{booking.user?.name || '-'}</span>
+                        <span className="text-sm text-gray-700 font-medium">{booking.user?.name || '-'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {new Date(booking.start_time).toLocaleDateString('th-TH')}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-gray-600 font-medium">
                       {new Date(booking.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} - {new Date(booking.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(booking.status)}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${getStatusBadge(booking.status)}`}>
                         {getStatusText(booking.status)}
                       </span>
                     </td>
@@ -526,127 +422,106 @@ export default function AdminReportsPage() {
           )}
         </div>
         {filteredBookings.length > 50 && (
-          <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500">
+          <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500 bg-gray-50/50">
             แสดง 50 รายการแรก จากทั้งหมด {filteredBookings.length} รายการ
           </div>
         )}
-      </div>
+      </AdminCard>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      {/* Analytics Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Popular Rooms */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-            <span className="text-2xl mr-2">🏆</span>
-            ห้องที่ได้รับความนิยมสูงสุด
-          </h3>
+        <AdminCard title="ห้องที่ได้รับความนิยมสูงสุด" icon="🏆">
           {reports.popularRooms.length > 0 ? (
             <div className="space-y-3">
               {reports.popularRooms.map((room, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all">
                   <div className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${index === 0 ? 'bg-yellow-400 text-white' :
-                      index === 1 ? 'bg-gray-300 text-white' :
-                        index === 2 ? 'bg-orange-400 text-white' :
-                          'bg-gray-200 text-gray-600'
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold mr-4 ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                      index === 1 ? 'bg-gray-200 text-gray-700' :
+                        index === 2 ? 'bg-orange-100 text-orange-700' :
+                          'bg-white border border-gray-200 text-gray-500'
                       }`}>
                       {index + 1}
                     </div>
                     <span className="font-medium text-gray-900">{room.name}</span>
                   </div>
-                  <span className="text-sm font-semibold text-blue-600">{room.count} ครั้ง</span>
+                  <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{room.count} ครั้ง</span>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">ยังไม่มีข้อมูล</p>
           )}
-        </div>
+        </AdminCard>
 
         {/* Top Users */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-            <span className="text-2xl mr-2">👥</span>
-            ผู้ใช้งานที่จองบ่อยที่สุด
-          </h3>
+        <AdminCard title="ผู้ใช้งานที่จองบ่อยที่สุด" icon="👥">
           {reports.topUsers.length > 0 ? (
             <div className="space-y-3">
               {reports.topUsers.map((user, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all">
                   <div className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${index === 0 ? 'bg-yellow-400 text-white' :
-                      index === 1 ? 'bg-gray-300 text-white' :
-                        index === 2 ? 'bg-orange-400 text-white' :
-                          'bg-gray-200 text-gray-600'
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold mr-4 ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                      index === 1 ? 'bg-gray-200 text-gray-700' :
+                        index === 2 ? 'bg-orange-100 text-orange-700' :
+                          'bg-white border border-gray-200 text-gray-500'
                       }`}>
                       {index + 1}
                     </div>
                     <span className="font-medium text-gray-900">{user.name}</span>
                   </div>
-                  <span className="text-sm font-semibold text-green-600">{user.count} ครั้ง</span>
+                  <span className="text-sm font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">{user.count} ครั้ง</span>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">ยังไม่มีข้อมูล</p>
           )}
-        </div>
-      </div>
+        </AdminCard>
 
-      {/* Peak Hours Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-        <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-          <span className="text-2xl mr-2">⏰</span>
-          ช่วงเวลาที่มีการจองมากที่สุด
-        </h3>
-        <div className="space-y-2">
-          {reports.peakHours.map((hour, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-16 text-sm font-medium text-gray-700">{hour.label}</div>
-              <div className="flex-1 mx-3">
-                <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 h-8 rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                    style={{ width: `${hour.percentage}%` }}
-                  >
-                    {hour.count > 0 && (
-                      <span className="text-xs font-bold text-white">{hour.count}</span>
-                    )}
+        {/* Peak Hours Chart */}
+        <AdminCard title="ช่วงเวลาที่มีการจองมากที่สุด" icon="⏰">
+          <div className="space-y-3">
+            {reports.peakHours.map((hour, index) => (
+              <div key={index} className="flex items-center group">
+                <div className="w-16 text-sm font-bold text-gray-500">{hour.label}</div>
+                <div className="flex-1 mx-3">
+                  <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all duration-500 group-hover:from-blue-600 group-hover:to-indigo-600"
+                      style={{ width: `${hour.percentage}%` }}
+                    ></div>
                   </div>
                 </div>
+                <div className="w-12 text-right text-sm font-bold text-gray-700">
+                  {hour.count}
+                </div>
               </div>
-              <div className="w-12 text-right text-sm font-semibold text-gray-600">
-                {hour.count}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            ))}
+          </div>
+        </AdminCard>
 
-      {/* Demand by Day */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-        <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-          <span className="text-2xl mr-2">📅</span>
-          ความต้องการตามวันในสัปดาห์
-        </h3>
-        <div className="space-y-4">
-          {reports.demandByDay.map((day, index) => (
-            <div key={index}>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-700">{day.day}</span>
-                <span className="text-sm font-bold text-green-600">{day.count} การจอง</span>
+        {/* Demand by Day */}
+        <AdminCard title="ความต้องการตามวันในสัปดาห์" icon="📅">
+          <div className="space-y-4">
+            {reports.demandByDay.map((day, index) => (
+              <div key={index}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">{day.day}</span>
+                  <span className="text-sm font-bold text-green-600">{day.count} การจอง</span>
+                </div>
+                <div className="w-ful bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${day.percentage}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${day.percentage}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </AdminCard>
       </div>
     </div>
   )
 }
-

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { API_URL } from '../lib/api'
 
 export default function ProfilePage() {
   const { user, loading: authLoading, updateProfile } = useAuth()
@@ -32,7 +33,7 @@ export default function ProfilePage() {
         if (user.profile_picture.startsWith('http')) {
           setPreview(user.profile_picture)
         } else {
-          setPreview(`http://127.0.0.1:8000/${user.profile_picture}`)
+          setPreview(`${API_URL}/${user.profile_picture}`)
         }
       }
     }

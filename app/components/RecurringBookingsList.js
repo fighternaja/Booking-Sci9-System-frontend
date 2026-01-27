@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '../lib/api'
 
 export default function RecurringBookingsList({ token }) {
     const [recurringBookings, setRecurringBookings] = useState([])
@@ -20,8 +21,8 @@ export default function RecurringBookingsList({ token }) {
         try {
             setLoading(true)
             const url = filter === 'all'
-                ? 'http://127.0.0.1:8000/api/recurring-bookings'
-                : `http://127.0.0.1:8000/api/recurring-bookings?is_active=${filter === 'active' ? 1 : 0}`
+                ? `${API_URL}/api/recurring-bookings`
+                : `${API_URL}/api/recurring-bookings?is_active=${filter === 'active' ? 1 : 0}`
 
             const response = await fetch(url, {
                 headers: {
@@ -66,7 +67,7 @@ export default function RecurringBookingsList({ token }) {
         if (!result.isConfirmed) return
 
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/recurring-bookings/${id}`, {
+            const response = await fetch(`${API_URL}/api/recurring-bookings/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -101,7 +102,7 @@ export default function RecurringBookingsList({ token }) {
 
     const toggleActive = async (id, currentStatus) => {
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/recurring-bookings/${id}`, {
+            const response = await fetch(`${API_URL}/api/recurring-bookings/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

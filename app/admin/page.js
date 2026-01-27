@@ -9,6 +9,7 @@ import AdminButton from './components/AdminButton'
 import AdminCard from './components/AdminCard'
 import AdminHeader from './components/AdminHeader'
 import StatCard from './components/StatCard'
+import { API_URL } from '../lib/api'
 
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState({
@@ -52,14 +53,14 @@ export default function AdminDashboard() {
     try {
       // Fetch both APIs in parallel for better performance
       const [dashboardResponse, bookingsResponse] = await Promise.all([
-        fetch('http://127.0.0.1:8000/api/admin/dashboard', {
+        fetch(`${API_URL}/api/admin/dashboard`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           }
         }),
-        fetch('http://127.0.0.1:8000/api/bookings?per_page=10', {
+        fetch(`${API_URL}/api/bookings?per_page=10`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -115,7 +116,7 @@ export default function AdminDashboard() {
 
   const handleApprove = async (bookingId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/approve`, {
+      const response = await fetch(`${API_URL}/api/bookings/${bookingId}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -157,7 +158,7 @@ export default function AdminDashboard() {
     if (!confirm('คุณแน่ใจหรือไม่ที่จะปฏิเสธการจองนี้?')) return
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/reject`, {
+      const response = await fetch(`${API_URL}/api/bookings/${bookingId}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

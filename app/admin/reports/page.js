@@ -8,6 +8,7 @@ import AdminCard from '../components/AdminCard'
 import AdminButton from '../components/AdminButton'
 import StatCard from '../components/StatCard'
 import DashboardCharts from '../components/DashboardCharts'
+import { API_URL } from '../../lib/api'
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState({
@@ -44,7 +45,7 @@ export default function AdminReportsPage() {
       setLoading(true)
 
       // Fetch dashboard stats
-      const dashboardResponse = await fetch('http://127.0.0.1:8000/api/admin/dashboard', {
+      const dashboardResponse = await fetch(`${API_URL}/api/admin/dashboard`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -60,7 +61,7 @@ export default function AdminReportsPage() {
       }
 
       // Fetch all bookings
-      const bookingsResponse = await fetch('http://127.0.0.1:8000/api/bookings', {
+      const bookingsResponse = await fetch(`${API_URL}/api/bookings`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'

@@ -8,7 +8,9 @@ import { useAuth } from '../../contexts/AuthContext'
 import { formatDateTimeToThai } from '../../utils/dateUtils'
 import AdminButton from '../components/AdminButton'
 import AdminCard from '../components/AdminCard'
+import AdminCard from '../components/AdminCard'
 import AdminHeader from '../components/AdminHeader'
+import { API_URL } from '../../lib/api'
 
 export default function AdminBookingsPage() {
   // --- State ---
@@ -59,7 +61,7 @@ export default function AdminBookingsPage() {
       if (startDate) params.append('start_date', startDate)
       if (endDate) params.append('end_date', endDate)
 
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings?${params.toString()}`, {
+      const response = await fetch(`${API_URL}/api/bookings?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -103,7 +105,7 @@ export default function AdminBookingsPage() {
 
       if (!result.isConfirmed) return
 
-      const res = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}/approve`, {
+      const res = await fetch(`${API_URL}/api/bookings/${booking.id}/approve`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -133,7 +135,7 @@ export default function AdminBookingsPage() {
     if (reason === undefined) return // Cancelled
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}/reject`, {
+      const res = await fetch(`${API_URL}/api/bookings/${booking.id}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -167,7 +169,7 @@ export default function AdminBookingsPage() {
     if (!result.isConfirmed) return
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}/cancel`, {
+      const res = await fetch(`${API_URL}/api/bookings/${booking.id}/cancel`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -178,7 +180,7 @@ export default function AdminBookingsPage() {
 
       if (!res.ok) {
         // Fallback
-        const res2 = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}`, {
+        const res2 = await fetch(`${API_URL}/api/bookings/${booking.id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -230,59 +232,60 @@ export default function AdminBookingsPage() {
       />
 
       {/* Toolbar & Filters */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center sticky top-0 z-10">
-
-        {/* Status Tabs */}
-        <div className="flex bg-gray-100/50 p-1 rounded-xl overflow-x-auto max-w-full">
-          {[
-            { id: 'all', label: 'ทั้งหมด' },
-            { id: 'pending', label: 'รออนุมัติ' },
-            { id: 'approved', label: 'อนุมัติ' },
-            { id: 'rejected', label: 'ปฏิเสธ' },
-            { id: 'cancelled', label: 'ยกเลิก' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setStatusFilter(tab.id)
-                const params = new URLSearchParams(searchParams)
-                if (tab.id !== 'all') {
-                  params.set('status', tab.id)
-                } else {
-                  params.delete('status')
-                }
-                router.push(`?${params.toString()}`, { scroll: false })
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${statusFilter === tab.id
+      <AdminCard className="sticky top-0 z-10" noPadding>
+        <div className="p-4 flex flex-col lg:flex-row gap-4 justify-between items-center">
+          {/* Status Tabs */}
+          <div className="flex bg-gray-100/50 p-1 rounded-xl overflow-x-auto max-w-full no-scrollbar">
+            {[
+              { id: 'all', label: 'ทั้งหมด' },
+              { id: 'pending', label: 'รออนุมัติ' },
+              { id: 'approved', label: 'อนุมัติ' },
+              { id: 'rejected', label: 'ปฏิเสธ' },
+              { id: 'cancelled', label: 'ยกเลิก' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setStatusFilter(tab.id)
+                  const params = new URLSearchParams(searchParams)
+                  if (tab.id !== 'all') {
+                    params.set('status', tab.id)
+                  } else {
+                    params.delete('status')
+                  }
+                  router.push(`?${params.toString()}`, { scroll: false })
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${statusFilter === tab.id
                   ? 'bg-white text-blue-600 shadow-sm border border-gray-200/50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Search & Date */}
-        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
-          <div className="relative flex-1 lg:w-64">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          {/* Search & Date */}
+          <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-64">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+              <input
+                type="text"
+                placeholder="ค้นหา..."
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
             <input
-              type="text"
-              placeholder="ค้นหา..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              type="date"
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
             />
           </div>
-          <input
-            type="date"
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-          />
         </div>
-      </div>
+      </AdminCard>
 
       {/* Bookings List */}
       <div className="space-y-4">
@@ -300,7 +303,7 @@ export default function AdminBookingsPage() {
           </div>
         ) : getFilteredBookings().length > 0 ? (
           getFilteredBookings().map(booking => (
-            <div key={booking.id} className="bg-white rounded-2xl border border-gray-100/50 p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
+            <AdminCard key={booking.id} className="group hover:shadow-md transition-all duration-300">
               <div className="flex flex-col lg:flex-row gap-6">
 
                 {/* Time & Room (Left) */}
@@ -318,9 +321,9 @@ export default function AdminBookingsPage() {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                        booking.status === 'approved' ? 'bg-green-50 text-green-700 border-green-100' :
-                          booking.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-100' :
-                            'bg-gray-50 text-gray-600 border-gray-100'
+                      booking.status === 'approved' ? 'bg-green-50 text-green-700 border-green-100' :
+                        booking.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-100' :
+                          'bg-gray-50 text-gray-600 border-gray-100'
                       }`}>
                       {booking.status === 'pending' ? 'รออนุมัติ' :
                         booking.status === 'approved' ? 'อนุมัติแล้ว' :
@@ -355,28 +358,28 @@ export default function AdminBookingsPage() {
                 <div className="flex flex-row lg:flex-col gap-2 justify-center lg:w-40 border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6">
                   {booking.status === 'pending' && (
                     <>
-                      <button onClick={() => handleApprove(booking)} className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2 px-4 rounded-xl text-sm transition-colors border border-green-200">
+                      <AdminButton onClick={() => handleApprove(booking)} variant="success" size="sm" className="w-full">
                         อนุมัติ
-                      </button>
-                      <button onClick={() => handleReject(booking)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold py-2 px-4 rounded-xl text-sm transition-colors border border-red-200">
+                      </AdminButton>
+                      <AdminButton onClick={() => handleReject(booking)} variant="danger" size="sm" className="w-full">
                         ปฏิเสธ
-                      </button>
+                      </AdminButton>
                     </>
                   )}
                   {(booking.status === 'approved' || booking.status === 'pending') && (
-                    <button onClick={() => handleEdit(booking)} className="flex-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 font-medium py-2 px-4 rounded-xl text-sm transition-colors">
+                    <AdminButton onClick={() => handleEdit(booking)} variant="secondary" size="sm" className="w-full">
                       แก้ไข
-                    </button>
+                    </AdminButton>
                   )}
                   {(booking.status !== 'cancelled' && booking.status !== 'rejected') && (
-                    <button onClick={() => handleCancel(booking)} className="flex-1 text-gray-400 hover:text-red-600 hover:bg-red-50 font-medium py-2 px-4 rounded-xl text-sm transition-colors">
+                    <AdminButton onClick={() => handleCancel(booking)} variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-700 hover:bg-red-50">
                       ยกเลิก
-                    </button>
+                    </AdminButton>
                   )}
                 </div>
 
               </div>
-            </div>
+            </AdminCard>
           ))
         ) : (
           <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">

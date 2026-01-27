@@ -52,7 +52,7 @@ export default function AdminLayout({ children }) {
         - md:pt-10: reduced top padding for desktop since sidebar is side
         - p-4/md:p-8: General padding
       */}
-            <main className="md:ml-64 pt-24 md:pt-20 p-4 md:p-8 transition-all duration-300">
+            <main className="md:ml-64 pt-28 md:pt-32 p-4 md:p-8 transition-all duration-300">
                 <div className="max-w-7xl mx-auto space-y-6">
                     {children}
                 </div>

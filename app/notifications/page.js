@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
 import Link from 'next/link'
+import { API_URL } from '../lib/api'
 
 export default function NotificationsPage() {
     const { user, token, isAdmin } = useAuth()
@@ -21,7 +22,7 @@ export default function NotificationsPage() {
 
     const fetchNotifications = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/notifications', {
+            const response = await fetch(`${API_URL}/api/notifications`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
@@ -43,7 +44,7 @@ export default function NotificationsPage() {
 
     const markAsRead = async (notificationId) => {
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/notifications/${notificationId}/read`, {
+            const response = await fetch(`${API_URL}/api/notifications/${notificationId}/read`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

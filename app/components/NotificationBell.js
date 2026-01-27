@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { API_URL } from '../lib/api'
 
 export default function NotificationBell() {
   const { user, token, isAdmin } = useAuth()
@@ -39,7 +40,7 @@ export default function NotificationBell() {
 
     try {
       setLoading(true)
-      const response = await fetch('http://127.0.0.1:8000/api/notifications', {
+      const response = await fetch(`${API_URL}/api/notifications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -71,7 +72,7 @@ export default function NotificationBell() {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_URL}/api/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

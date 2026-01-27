@@ -8,6 +8,7 @@ import BookingModal from './BookingModal'
 import Swal from 'sweetalert2'
 import './CalendarStyles.css'
 import { parseDate } from '../utils/dateUtils'
+import { API_URL } from '../lib/api'
 
 // ตั้งค่า moment locale เป็นภาษาไทย
 moment.locale('th')
@@ -32,7 +33,7 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
       const month = moment(currentDate).format('YYYY-MM')
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?month=${month}`,
+        `${API_URL}/api/rooms/${roomId}/bookings?month=${month}`,
         {
           headers: {
             'Accept': 'application/json',
@@ -292,12 +293,8 @@ export default function BookingCalendar({ roomId, room, onBookingSuccess }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 md:p-6">
-      <div className="mb-6">
-        <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">จองห้อง</h3>
-      </div>
-
-      <div className="h-[500px] md:h-[600px] mb-6">
+    <div className="h-full">
+      <div className="h-[600px] mb-4">
         <Calendar
           localizer={localizer}
           events={events}

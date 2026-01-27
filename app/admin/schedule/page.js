@@ -9,6 +9,7 @@ import { formatDateToThaiShort, parseDate, formatDateTimeToThai } from '../../ut
 import AdminHeader from '../components/AdminHeader'
 import AdminCard from '../components/AdminCard'
 import AdminButton from '../components/AdminButton'
+import { API_URL } from '../../lib/api'
 
 export default function AdminSchedulePage() {
   const [rooms, setRooms] = useState([])
@@ -56,7 +57,7 @@ export default function AdminSchedulePage() {
 
     setRoomsLoading(true)
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/rooms', {
+      const response = await fetch(`${API_URL}/api/rooms`, {
         headers: {
           'Accept': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -83,17 +84,9 @@ export default function AdminSchedulePage() {
         }
       }
 
-      // Mock data fallback
-      const mockRooms = [
-        { id: 1, name: 'Sci9 201(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 1' },
-        { id: 2, name: 'Sci9 203(HardWare)', description: 'ห้องคอมพิวเตอร์', capacity: 50, location: 'ชั้น 2 ห้อง 3' },
-        { id: 3, name: 'Sci9 204(COM)', description: '', capacity: 10, location: 'ชั้น 2 ห้อง 4' },
-        { id: 4, name: 'Sci9 205(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 24, location: 'ชั้น 4 อาคาร B' },
-        { id: 5, name: 'Sci9 301(COM)', description: 'ห้องคอมพิวเตอร์', capacity: 49, location: 'ชั้น 3 ห้อง 1' },
-      ]
-      setRooms(mockRooms)
+      setRooms([])
       setApiError(true)
-      setErrorMessage('ไม่สามารถเชื่อมต่อกับ API ได้ กำลังใช้ข้อมูลจำลอง')
+      setErrorMessage('ไม่สามารถเชื่อมต่อกับ API ได้')
 
     } catch (error) {
       console.error('Error fetching rooms:', error)
@@ -125,7 +118,7 @@ export default function AdminSchedulePage() {
       const startStr = monday.toISOString().slice(0, 19).replace('T', ' ')
       const endStr = sunday.toISOString().slice(0, 19).replace('T', ' ')
 
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings?start_date=${startStr}&end_date=${endStr}`, {
+      const response = await fetch(`${API_URL}/api/bookings?start_date=${startStr}&end_date=${endStr}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -308,7 +301,7 @@ export default function AdminSchedulePage() {
         }))
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/admin/bookings/import', {
+      const response = await fetch(`${API_URL}/api/admin/bookings/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,7 +357,7 @@ export default function AdminSchedulePage() {
 
   // Helper functions
   const getWeekStart = (date) => {
-    const d = new Date(date)
+    const d = parseDate(date) || new Date()
     const day = d.getDay() === 0 ? 7 : d.getDay()
     const monday = new Date(d)
     monday.setDate(d.getDate() - (day - 1))
@@ -486,6 +479,31 @@ export default function AdminSchedulePage() {
 
   const normalizeRoomName = (name) => String(name || '').toLowerCase().replace(/\s+/g, '')
 
+  const handleTermChange = (year, semester) => {
+    setAcademicYear(year)
+    setSelectedSemester(semester)
+
+    // Calculate start date based on Year/Semester
+    // Thai Academic Year 2568 = 2025 AD
+    const baseYear = parseInt(year) - 543
+    let targetDate = new Date()
+
+    if (semester === 1) {
+      targetDate = new Date(baseYear, 5, 1) // June 1st
+    } else if (semester === 2) {
+      targetDate = new Date(baseYear, 10, 1) // Nov 1st
+    } else if (semester === 3) {
+      targetDate = new Date(baseYear + 1, 3, 1) // April 1st (Next Year)
+    }
+
+    // Adjust to Monday of that week
+    const day = targetDate.getDay() === 0 ? 7 : targetDate.getDay()
+    const monday = new Date(targetDate)
+    monday.setDate(targetDate.getDate() - (day - 1))
+
+    setSelectedDate(monday.toISOString().split('T')[0])
+  }
+
   if (loading || roomsLoading) {
     return (
       <div className="space-y-6">
@@ -564,7 +582,7 @@ export default function AdminSchedulePage() {
                 <div className="relative">
                   <select
                     value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
+                    onChange={(e) => handleTermChange(e.target.value, selectedSemester)}
                     className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-shadow"
                   >
                     <option value="2567">2567</option>
@@ -582,7 +600,7 @@ export default function AdminSchedulePage() {
                   {[1, 2, 3].map(sem => (
                     <button
                       key={sem}
-                      onClick={() => setSelectedSemester(sem)}
+                      onClick={() => handleTermChange(academicYear, sem)}
                       className={`flex-1 rounded-lg text-sm font-bold transition-all ${selectedSemester === sem
                         ? 'bg-white text-blue-600 shadow-sm'
                         : 'text-gray-500 hover:text-gray-900'
@@ -604,18 +622,18 @@ export default function AdminSchedulePage() {
                 prevWeek.setDate(currentDate.getDate() - 7)
                 setSelectedDate(prevWeek.toISOString().split('T')[0])
               }}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-gray-600 transition-all"
-            >
+              className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-gray-600 transition-all">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
 
             <div className="text-center min-w-[200px]">
-              <div className="text-sm font-bold text-gray-900">
+              <div className="text-sm text-gray-500 mb-0.5 font-medium">สัปดาห์ที่เลือก</div>
+              <div className="text-sm font-bold text-gray-900 bg-white border border-gray-200 px-3 py-1 rounded-lg shadow-sm">
                 {formatDateToThaiShort(weekStart)} - {formatDateToThaiShort(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
               </div>
               <button
                 onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline mt-0.5"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline mt-1"
               >
                 กลับไปสัปดาห์นี้
               </button>

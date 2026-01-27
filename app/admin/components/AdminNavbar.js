@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { API_URL } from '../../lib/api'
 
 export default function AdminNavbar() {
   const pathname = usePathname()
@@ -21,7 +22,7 @@ export default function AdminNavbar() {
   const fetchUnreadCount = async () => {
     if (!token) return
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/notifications', {
+      const response = await fetch(`${API_URL}/api/notifications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -167,9 +168,9 @@ function SidebarContent({ user, logout, navigation, isActive, unreadCount, isOpe
       `}>
 
         {/* Logo Area */}
-        <div className="flex-shrink-0 px-6 py-6 border-b border-gray-50">
+        <div className="flex-shrink-0 px-6 pt-12 pb-6 border-b border-gray-50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center font-bold text-xl shadow-sm transform rotate-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center font-bold text-2xl shadow-sm transform rotate-3">
               📚
             </div>
             <div>

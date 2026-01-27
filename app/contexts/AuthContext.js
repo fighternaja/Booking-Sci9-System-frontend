@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { API_URL } from '../lib/api'
 
 const AuthContext = createContext()
 
@@ -22,7 +24,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/login', {
+      const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +69,7 @@ export function AuthProvider({ children }) {
 
   const register = async (name, email, password, password_confirmation) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/register', {
+      const response = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +122,7 @@ export function AuthProvider({ children }) {
   const getProfile = async () => {
     try {
       const authToken = localStorage.getItem('token')
-      const response = await fetch('http://127.0.0.1:8000/api/user', {
+      const response = await fetch(`${API_URL}/api/user`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +166,7 @@ export function AuthProvider({ children }) {
       if (profileData.password) formData.append('password', profileData.password)
       if (profileData.profile_picture) formData.append('profile_picture', profileData.profile_picture)
 
-      const response = await fetch('http://127.0.0.1:8000/api/user/update', {
+      const response = await fetch(`${API_URL}/api/user/update`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Swal from 'sweetalert2'
+import { API_URL } from '../lib/api'
 
 export default function AttendeesList({ bookingId, attendees, token, onUpdate }) {
     const [loading, setLoading] = useState({})
@@ -24,7 +25,7 @@ export default function AttendeesList({ bookingId, attendees, token, onUpdate })
     const handleResendInvitation = async (attendeeId) => {
         setLoading({ ...loading, [attendeeId]: true })
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/attendees/${attendeeId}/send-invitation`, {
+            const response = await fetch(`${API_URL}/api/attendees/${attendeeId}/send-invitation`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -74,7 +75,7 @@ export default function AttendeesList({ bookingId, attendees, token, onUpdate })
         if (!result.isConfirmed) return
 
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/attendees/${attendeeId}`, {
+            const response = await fetch(`${API_URL}/api/bookings/${bookingId}/attendees/${attendeeId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -110,7 +111,7 @@ export default function AttendeesList({ bookingId, attendees, token, onUpdate })
 
     const handleCheckin = async (attendeeId) => {
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/attendees/${attendeeId}/checkin`, {
+            const response = await fetch(`${API_URL}/api/attendees/${attendeeId}/checkin`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

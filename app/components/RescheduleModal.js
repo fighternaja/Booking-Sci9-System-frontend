@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import Swal from 'sweetalert2'
+import { API_URL } from '../lib/api'
 
 export default function RescheduleModal({ isOpen, onClose, booking, onRescheduleSuccess }) {
   const [formData, setFormData] = useState({
@@ -61,7 +62,7 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
 
     setCheckingAvailability(true)
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/rooms/${booking.room_id}/check-availability`, {
+      const response = await fetch(`${API_URL}/api/rooms/${booking.room_id}/check-availability`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}/reschedule`, {
+      const response = await fetch(`${API_URL}/api/bookings/${booking.id}/reschedule`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

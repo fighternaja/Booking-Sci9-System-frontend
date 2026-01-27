@@ -5,6 +5,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     BarChart, Bar, PieChart, Pie, Cell, Legend
 } from 'recharts'
+import { API_URL } from '../../lib/api'
 
 export default function DashboardCharts({ token }) {
     const [data, setData] = useState({
@@ -22,7 +23,7 @@ export default function DashboardCharts({ token }) {
 
     const fetchChartsData = async () => {
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/admin/dashboard/charts', {
+            const res = await fetch(`${API_URL}/api/admin/dashboard/charts`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'

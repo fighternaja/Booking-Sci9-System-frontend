@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import Swal from 'sweetalert2'
+import { API_URL } from '../../lib/api'
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState({
@@ -57,7 +58,7 @@ export default function AdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/admin/settings/booking-restrictions', {
+      const response = await fetch(`${API_URL}/api/admin/settings/booking-restrictions`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -140,7 +141,7 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/admin/settings/booking-restrictions', {
+      const response = await fetch(`${API_URL}/api/admin/settings/booking-restrictions`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -186,7 +187,7 @@ export default function AdminSettingsPage() {
     if (!result.isConfirmed) return
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/admin/settings/booking-restrictions/reset', {
+      const response = await fetch(`${API_URL}/api/admin/settings/booking-restrictions/reset`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

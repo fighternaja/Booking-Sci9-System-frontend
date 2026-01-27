@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatDateTimeToThai } from '../utils/dateUtils'
 import Swal from 'sweetalert2'
 import RecurringBookingsList from '../components/RecurringBookingsList'
+import { API_URL } from '../lib/api'
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([])
@@ -58,7 +59,7 @@ export default function MyBookingsPage() {
   const fetchRecurringCount = async () => {
     if (!token) return
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/recurring-bookings/stats', {
+      const response = await fetch(`${API_URL}/api/recurring-bookings/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -84,7 +85,7 @@ export default function MyBookingsPage() {
     try {
       setError(null)
       const timestamp = new Date().getTime()
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings?t=${timestamp}`, {
+      const response = await fetch(`${API_URL}/api/bookings?t=${timestamp}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -123,7 +124,7 @@ export default function MyBookingsPage() {
 
   const fetchAvailableEquipment = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/equipment', {
+      const response = await fetch(`${API_URL}/api/equipment`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -143,7 +144,7 @@ export default function MyBookingsPage() {
 
   const fetchBookingEquipment = async (bookingId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/equipment`, {
+      const response = await fetch(`${API_URL}/api/bookings/${bookingId}/equipment`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -171,7 +172,7 @@ export default function MyBookingsPage() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${selectedBookingId}/equipment`, {
+      const response = await fetch(`${API_URL}/api/bookings/${selectedBookingId}/equipment`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -218,7 +219,7 @@ export default function MyBookingsPage() {
     if (!result.isConfirmed) return
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/equipment/${equipmentId}`, {
+      const response = await fetch(`${API_URL}/api/bookings/${bookingId}/equipment/${equipmentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -390,7 +391,7 @@ export default function MyBookingsPage() {
                     <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden bg-gray-100 shrink-0 relative">
                       {booking.room?.image ? (
                         <img
-                          src={`http://127.0.0.1:8000/${booking.room.image}`}
+                          src={`${API_URL}/${booking.room.image}`}
                           alt={booking.room.name}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
@@ -523,7 +524,7 @@ export default function MyBookingsPage() {
                               }).then(async (result) => {
                                 if (result.isConfirmed) {
                                   try {
-                                    const response = await fetch(`http://127.0.0.1:8000/api/bookings/${booking.id}`, {
+                                    const response = await fetch(`${API_URL}/api/bookings/${booking.id}`, {
                                       method: 'PUT',
                                       headers: {
                                         'Authorization': `Bearer ${token}`,

@@ -1,18 +1,23 @@
-// Helper to parse date string safely, defaulting to UTC if timezone is missing
 export const parseDate = (date) => {
   if (!date) return null
+  if (date instanceof Date) {
+    if (isNaN(date.getTime())) return null
+    return date
+  }
   let dateStr = String(date).trim()
-  if (dateStr.includes(' ')) {
+  if (dateStr.includes(' ') && !dateStr.includes('T')) {
     dateStr = dateStr.replace(' ', 'T')
   }
-  // Treat as local time (do not append Z)
-  return new Date(dateStr)
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return null
+  return d
 }
 
 // Format date to YYYY-MM-DD HH:mm:ss (Local) for Backend
 export const formatDateForBackend = (date) => {
   if (!date) return ''
   const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -49,7 +54,7 @@ export const formatDateToThai = (date) => {
 // จัดรูปแบบวันที่และเวลาให้อยู่ในรูปแบบไทย (วัน/เดือน/ปี พ.ศ. ชั่วโมง:นาที)
 export const formatDateTimeToThai = (date) => {
   const d = parseDate(date)
-  if (!d) return ''
+  if (!d) return '-'
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear() + 543 // แปลงเป็น พ.ศ.
@@ -92,7 +97,7 @@ export const formatDateTimeToThaiFull = (date) => {
 // จัดรูปแบบวันที่เป็นรูปแบบไทย (วัน/เดือน/ปี พ.ศ.)
 export const formatDateToThaiShort = (date) => {
   const d = parseDate(date)
-  if (!d) return ''
+  if (!d) return '-'
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear() + 543 // แปลงเป็น พ.ศ.

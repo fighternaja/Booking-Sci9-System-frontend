@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import NotificationBell from './NotificationBell'
+import { API_URL } from '../lib/api'
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth()
@@ -31,7 +32,7 @@ export default function Navbar() {
       if (user.profile_picture.startsWith('http://') || user.profile_picture.startsWith('https://')) {
         return user.profile_picture
       }
-      return `http://127.0.0.1:8000/${user.profile_picture}`
+      return `${API_URL}/${user.profile_picture}`
     }
     return null
   }
@@ -67,7 +68,7 @@ export default function Navbar() {
             {[
               { name: 'หน้าหลัก', href: '/' },
               { name: 'ห้องทั้งหมด', href: '/rooms' },
-              ...(user ? [{ name: 'การจองของฉัน', href: '/my-bookings' }] : []),
+              ...(user ? [{ name: 'รายการจองห้อง', href: '/my-bookings' }] : []),
               { name: 'เกี่ยวกับอาคาร', href: '/about' },
               ...(isAdmin() ? [{ name: 'Admin Dashboard', href: '/admin' }] : [])
             ].map((item) => (

@@ -7,6 +7,7 @@ import AdminHeader from '../components/AdminHeader'
 import AdminCard from '../components/AdminCard'
 import AdminButton from '../components/AdminButton'
 import Swal from 'sweetalert2'
+import { API_URL } from '../../lib/api'
 
 export default function AdminEquipmentPage() {
     const [equipment, setEquipment] = useState([])
@@ -35,7 +36,7 @@ export default function AdminEquipmentPage() {
     const fetchEquipment = async () => {
         try {
             setLoading(true)
-            const response = await fetch('http://127.0.0.1:8000/api/equipment', {
+            const response = await fetch(`${API_URL}/api/equipment`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
@@ -59,8 +60,8 @@ export default function AdminEquipmentPage() {
         e.preventDefault()
 
         const url = editingEquipment
-            ? `http://127.0.0.1:8000/api/equipment/${editingEquipment.id}`
-            : 'http://127.0.0.1:8000/api/equipment'
+            ? `${API_URL}/api/equipment/${editingEquipment.id}`
+            : `${API_URL}/api/equipment`
 
         const method = editingEquipment ? 'PUT' : 'POST'
 
@@ -111,7 +112,7 @@ export default function AdminEquipmentPage() {
         if (!result.isConfirmed) return
 
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/equipment/${id}`, {
+            const response = await fetch(`${API_URL}/api/equipment/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,

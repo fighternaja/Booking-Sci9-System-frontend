@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { API_URL } from '../lib/api'
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState([])
@@ -47,7 +48,7 @@ export default function RoomsPage() {
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/bookings?start_date=${startOfMonth.toISOString().split('T')[0]}&end_date=${endOfMonth.toISOString().split('T')[0]}`,
+        `${API_URL}/api/rooms/${roomId}/bookings?start_date=${startOfMonth.toISOString().split('T')[0]}&end_date=${endOfMonth.toISOString().split('T')[0]}`,
         {
           headers: {
             'Accept': 'application/json',
@@ -87,7 +88,7 @@ export default function RoomsPage() {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/rooms', {
+      const response = await fetch(`${API_URL}/api/rooms`, {
         headers: {
           'Accept': 'application/json',
         }
@@ -129,7 +130,7 @@ export default function RoomsPage() {
 
   const fetchRoomTypes = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/rooms/types', {
+      const response = await fetch(`${API_URL}/api/rooms/types`, {
         headers: {
           'Accept': 'application/json',
         }
@@ -159,7 +160,7 @@ export default function RoomsPage() {
 
   const fetchStatuses = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/rooms/statuses', {
+      const response = await fetch(`${API_URL}/api/rooms/statuses`, {
         headers: {
           'Accept': 'application/json',
         }
@@ -299,7 +300,7 @@ export default function RoomsPage() {
               <div className="h-56 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden relative">
                 {room.image ? (
                   <img
-                    src={`http://127.0.0.1:8000/${room.image}`}
+                    src={`${API_URL}/${room.image}`}
                     alt={room.name}
                     className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                   />

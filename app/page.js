@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
+import { API_URL } from './lib/api'
 export default function Home() {
   const { user } = useAuth()
   const [stats, setStats] = useState({
@@ -17,7 +18,7 @@ export default function Home() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/stats', {
+      const response = await fetch(`${API_URL}/api/stats`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',

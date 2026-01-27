@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDateForBackend } from '../utils/dateUtils'
+import { API_URL } from '../lib/api'
 
 export default function BookingModal({ isOpen, onClose, selectedDate, room, onBookingSuccess }) {
   const [formData, setFormData] = useState({
@@ -169,7 +170,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       const startISO = formatDateForBackend(startTime)
       const endISO = formatDateForBackend(endTime)
 
-      const response = await fetch(`http://127.0.0.1:8000/api/rooms/${room.id}/check-availability`, {
+      const response = await fetch(`${API_URL}/api/rooms/${room.id}/check-availability`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -381,7 +382,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
           recurringPayload.day_of_month = recurringData.day_of_month
         }
 
-        const response = await fetch('http://127.0.0.1:8000/api/recurring-bookings', {
+        const response = await fetch(`${API_URL}/api/recurring-bookings`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -417,7 +418,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       }
 
       // Regular Booking
-      const response = await fetch('http://127.0.0.1:8000/api/bookings', {
+      const response = await fetch(`${API_URL}/api/bookings`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -550,7 +551,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         if (attendees.length > 0) {
           for (const attendee of attendees) {
             try {
-              await fetch(`http://127.0.0.1:8000/api/bookings/${bookingId}/attendees`, {
+              await fetch(`${API_URL}/api/bookings/${bookingId}/attendees`, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -608,7 +609,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       setCancelling(true)
       setError('')
 
-      const response = await fetch(`http://127.0.0.1:8000/api/bookings/${selectedDate.booking.id}/cancel`, {
+      const response = await fetch(`${API_URL}/api/bookings/${selectedDate.booking.id}/cancel`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -733,7 +734,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
               <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 {room?.image ? (
                   <img
-                    src={`http://127.0.0.1:8000/${room.image}`}
+                    src={`${API_URL}/${room.image}`}
                     alt={room.name}
                     className="w-full h-full object-cover rounded-lg"
                   />

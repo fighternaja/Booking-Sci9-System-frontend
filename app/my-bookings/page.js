@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatDateTimeToThai } from '../utils/dateUtils'
 import Swal from 'sweetalert2'
 import RecurringBookingsList from '../components/RecurringBookingsList'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([])
@@ -391,7 +391,7 @@ export default function MyBookingsPage() {
                     <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden bg-gray-100 shrink-0 relative">
                       {booking.room?.image ? (
                         <img
-                          src={`${API_URL}/storage/${booking.room.image}`}
+                          src={getStorageUrl(booking.room.image)}
                           alt={booking.room.name}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />

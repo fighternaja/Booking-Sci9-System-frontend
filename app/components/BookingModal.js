@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDateForBackend } from '../utils/dateUtils'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function BookingModal({ isOpen, onClose, selectedDate, room, onBookingSuccess }) {
   const [formData, setFormData] = useState({
@@ -734,7 +734,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
               <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 {room?.image ? (
                   <img
-                    src={`${API_URL}/storage/${room.image}`}
+                    src={getStorageUrl(room.image)}
                     alt={room.name}
                     className="w-full h-full object-cover rounded-lg"
                   />

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState([])
@@ -300,7 +300,7 @@ export default function RoomsPage() {
               <div className="h-56 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden relative">
                 {room.image ? (
                   <img
-                    src={`${API_URL}/storage/${room.image}`}
+                    src={getStorageUrl(room.image)}
                     alt={room.name}
                     className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                   />

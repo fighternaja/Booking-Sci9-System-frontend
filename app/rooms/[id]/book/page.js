@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import BookingCalendar from '../../../components/BookingCalendar'
 import { useAuth } from '../../../contexts/AuthContext'
-import { API_URL } from '../../../lib/api'
+import { API_URL, getStorageUrl } from '../../../lib/api'
 
 export default function BookRoomPage() {
   const [room, setRoom] = useState(null)
@@ -141,7 +141,7 @@ export default function BookRoomPage() {
               <div className="md:w-1/2 lg:w-2/5 relative h-64 md:h-auto min-h-[300px] bg-gray-200">
                 {room.image ? (
                   <img
-                    src={`${API_URL}/storage/${room.image}`}
+                    src={getStorageUrl(room.image)}
                     alt={room.name}
                     className="absolute inset-0 w-full h-full object-cover"
                   />

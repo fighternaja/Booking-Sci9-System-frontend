@@ -141,7 +141,7 @@ export default function BookRoomPage() {
               <div className="md:w-1/2 lg:w-2/5 relative h-64 md:h-auto min-h-[300px] bg-gray-200">
                 {room.image ? (
                   <img
-                    src={`${API_URL}/${room.image}`}
+                    src={`${API_URL}/storage/${room.image}`}
                     alt={room.name}
                     className="absolute inset-0 w-full h-full object-cover"
                   />

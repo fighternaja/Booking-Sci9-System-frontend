@@ -24,7 +24,8 @@ export default function AdminRoomsPage() {
       equipment: [],
       facilities: []
     },
-    is_active: true
+    is_active: true,
+    image: null
   })
   const [newEquipment, setNewEquipment] = useState({ name: '', quantity: 1 })
   const [newFacility, setNewFacility] = useState('')
@@ -85,16 +86,47 @@ export default function AdminRoomsPage() {
         ? `${API_URL}/api/admin/rooms/${editingRoom.id}`
         : `${API_URL}/api/admin/rooms`
 
-      const method = editingRoom ? 'PUT' : 'POST'
+      // Use POST method with _method field for PUT requests to support file upload in Laravel
+      const method = 'POST'
+
+      const data = new FormData()
+      data.append('name', formData.name)
+      data.append('description', formData.description)
+      data.append('capacity', formData.capacity)
+      data.append('location', formData.location)
+      data.append('is_active', formData.is_active ? '1' : '0')
+
+      // Handle amenities
+      if (formData.amenities) {
+        if (formData.amenities.equipment) {
+          formData.amenities.equipment.forEach((item, index) => {
+            data.append(`amenities[equipment][${index}][name]`, item.name)
+            data.append(`amenities[equipment][${index}][quantity]`, item.quantity)
+          })
+        }
+        if (formData.amenities.facilities) {
+          formData.amenities.facilities.forEach((item, index) => {
+            data.append(`amenities[facilities][${index}]`, item)
+          })
+        }
+      }
+
+      if (formData.image instanceof File) {
+        data.append('image', formData.image)
+      }
+
+      if (editingRoom) {
+        data.append('_method', 'PUT')
+      }
 
       const response = await fetch(url, {
         method,
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
           'Accept': 'application/json'
+          // Content-Type must be undefined to let browser set it with boundary
         },
-        body: JSON.stringify(formData)
+        body: data
       })
 
       if (!response.ok) {
@@ -108,9 +140,9 @@ export default function AdminRoomsPage() {
         return
       }
 
-      const data = await response.json()
+      const dataResponse = await response.json()
 
-      if (data.success) {
+      if (dataResponse.success) {
         Swal.fire({
           icon: 'success',
           title: 'สำเร็จ',
@@ -129,7 +161,8 @@ export default function AdminRoomsPage() {
             equipment: [],
             facilities: []
           },
-          is_active: true
+          is_active: true,
+          image: null
         })
         fetchRooms()
       }
@@ -147,7 +180,8 @@ export default function AdminRoomsPage() {
       capacity: room.capacity.toString(),
       location: room.location,
       amenities: room.amenities || { equipment: [], facilities: [] },
-      is_active: room.is_active
+      is_active: room.is_active,
+      image: null
     })
     setShowModal(true)
   }
@@ -239,7 +273,16 @@ export default function AdminRoomsPage() {
   }
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
+    const { name, value, type, checked, files } = e.target
+
+    if (type === 'file') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: files[0]
+      }))
+      return
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -312,7 +355,8 @@ export default function AdminRoomsPage() {
                 equipment: [],
                 facilities: []
               },
-              is_active: true
+              is_active: true,
+              image: null
             })
             setNewEquipment({ name: '', quantity: 1 })
             setNewFacility('')
@@ -558,6 +602,51 @@ export default function AdminRoomsPage() {
                     rows={3}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">รูปภาพห้อง</label>
+                  <div className="flex items-start gap-4">
+                    <div className="w-32 h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 relative">
+                      {(formData.image instanceof File) ? (
+                        <img
+                          src={URL.createObjectURL(formData.image)}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (editingRoom && editingRoom.image) ? (
+                        <img
+                          src={`${API_URL}/storage/${editingRoom.image}`}
+                          alt="Current"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        name="image"
+                        accept="image/*"
+                        onChange={handleChange}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2.5 file:px-4
+                          file:rounded-xl file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100
+                          transition-all"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">
+                        รองรับไฟล์ภาพ JPG, PNG, GIF ขนาดไม่เกิน 2MB
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">

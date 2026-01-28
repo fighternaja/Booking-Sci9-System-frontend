@@ -391,7 +391,7 @@ export default function MyBookingsPage() {
                     <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden bg-gray-100 shrink-0 relative">
                       {booking.room?.image ? (
                         <img
-                          src={`${API_URL}/${booking.room.image}`}
+                          src={`${API_URL}/storage/${booking.room.image}`}
                           alt={booking.room.name}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />

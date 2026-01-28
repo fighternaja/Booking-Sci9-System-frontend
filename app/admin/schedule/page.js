@@ -26,6 +26,11 @@ export default function AdminSchedulePage() {
   const [importedData, setImportedData] = useState([])
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState('')
+  const [importMode, setImportMode] = useState('daily') // 'daily' or 'weekly'
+  const [importRange, setImportRange] = useState({
+    start: new Date().toISOString().split('T')[0],
+    end: new Date(new Date().setMonth(new Date().getMonth() + 4)).toISOString().split('T')[0]
+  })
   const dateInputRef = useRef(null)
   const fileInputRef = useRef(null)
   const { token, logout, loading: authLoading } = useAuth()
@@ -176,24 +181,310 @@ export default function AdminSchedulePage() {
         const worksheet = workbook.Sheets[sheetName]
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
 
-        const processedData = processExcelData(jsonData)
+        let processedData = []
+
+        // Auto-detect format
+        // Check if header row contains time slots (e.g. "08:00 - 09:00")
+        const headerRow = jsonData[0]
+        let isMatrixFormat = false
+        if (headerRow && headerRow.length > 0) {
+          // Check for time patterns in header (e.g. "08:00", "8:00", "08.00")
+          const timePattern = /\d{1,2}[:.]\d{2}/
+          const matches = headerRow.filter(cell => cell && timePattern.test(String(cell)))
+          if (matches.length >= 2) { // Allow at least 2 time slots to confirm
+            isMatrixFormat = true
+          }
+        }
+
+        // If user explicitly selected 'weekly' (though we rely on detection now) or detected matrix
+        if (isMatrixFormat || importMode === 'weekly') {
+          setImportMode('weekly') // Sync state
+          processedData = processWeeklyExcelData(jsonData)
+        } else {
+          setImportMode('daily')
+          processedData = processExcelData(jsonData)
+        }
+
         setImportedData(processedData)
         setShowImportModal(true)
       } catch (error) {
         console.error('Error processing Excel file:', error)
-        setImportError('เกิดข้อผิดพลาดในการประมวลผลไฟล์ Excel')
+        setImportError('เกิดข้อผิดพลาดในการประมวลผลไฟล์ Excel: ' + error.message)
       } finally {
         setImportLoading(false)
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
       }
     }
 
     reader.readAsArrayBuffer(file)
   }
 
+  const getDayNumber = (dayStr) => {
+    // Remove dots and trim
+    const normalize = String(dayStr).toLowerCase().replace(/\./g, '').trim()
+
+    const days = {
+      'ho': 0, 'sun': 0, 'sunday': 0, 'อา': 0, 'อาทิตย์': 0, '1': 0,
+      'mo': 1, 'mon': 1, 'monday': 1, 'จ': 1, 'จันทร์': 1, '2': 1,
+      'tu': 2, 'tue': 2, 'tuesday': 2, 'อ': 2, 'อังคาร': 2, '3': 2,
+      'we': 3, 'wed': 3, 'wednesday': 3, 'พ': 3, 'พุธ': 3, '4': 3,
+      'th': 4, 'thu': 4, 'thursday': 4, 'พฤ': 4, 'พฤหัส': 4, 'พฤหัสบดี': 4, '5': 4,
+      'fr': 5, 'fri': 5, 'friday': 5, 'ศ': 5, 'ศุกร์': 5, '6': 5,
+      'sa': 6, 'sat': 6, 'saturday': 6, 'ส': 6, 'เสาร์': 6, '7': 6
+    }
+
+    return days[normalize] !== undefined ? days[normalize] : -1
+  }
+
+  const parseTimeStr = (timeStr) => {
+    if (typeof timeStr === 'number') {
+      // Create date from Excel fractional day
+      const totalSeconds = Math.floor(timeStr * 86400)
+      const hours = Math.floor(totalSeconds / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      return { hours, minutes }
+    }
+
+    if (!timeStr) return null
+    const str = String(timeStr).trim().replace('.', ':')
+
+    // Match HH:mm
+    let match = str.match(/(\d{1,2})[:](\d{2})/)
+    if (match) {
+      return { hours: parseInt(match[1]), minutes: parseInt(match[2]) }
+    }
+
+    // Match simple integer (e.g., "9", "13") -> HH:00
+    if (/^\d{1,2}$/.test(str)) {
+      return { hours: parseInt(str), minutes: 0 }
+    }
+
+    return null
+  }
+
+  // Format date to local YYYY-MM-DD HH:mm:ss to match backend expectation
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  }
+
+  const handleClearSchedule = async () => {
+    const result = await Swal.fire({
+      title: 'ล้างข้อมูลตารางเรียน',
+      html: `
+        <div class="text-left">
+          <p class="mb-2 text-sm text-gray-600">เลือกช่วงเวลาที่ต้องการลบข้อมูลการจองทั้งหมด</p>
+          <label class="block text-xs font-bold mb-1">เริ่มต้น</label>
+          <input type="date" id="swal-start-date" class="w-full border rounded p-2 mb-3" value="${importRange.start}">
+          <label class="block text-xs font-bold mb-1">สิ้นสุด</label>
+          <input type="date" id="swal-end-date" class="w-full border rounded p-2" value="${importRange.end}">
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'ยืนยันการลบ',
+      cancelButtonText: 'ยกเลิก',
+      preConfirm: () => {
+        return {
+          start_date: document.getElementById('swal-start-date').value,
+          end_date: document.getElementById('swal-end-date').value
+        }
+      }
+    })
+
+    if (result.isConfirmed) {
+      try {
+        setImportLoading(true)
+        const response = await fetch(`${API_URL}/api/admin/bookings/clear`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(result.value)
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          await Swal.fire('สำเร็จ', data.message, 'success')
+          fetchData() // Refresh data
+        } else {
+          throw new Error(data.message || 'Failed to clear schedule')
+        }
+      } catch (error) {
+        console.error('Error clearing schedule:', error)
+        await Swal.fire('ข้อผิดพลาด', 'ไม่สามารถล้างข้อมูลได้: ' + error.message, 'error')
+      } finally {
+        setImportLoading(false)
+      }
+    }
+  }
+
+  const processWeeklyExcelData = (data) => {
+    if (data.length < 2) {
+      throw new Error('ไฟล์ Excel ต้องมีข้อมูลอย่างน้อย 2 แถว')
+    }
+
+    // Matrix Format Parsing (Based on Image 2)
+    // Row 0: Header ["วัน / เวลา", "08:00 - 09:00", "09:00 - 10:00", ...]
+    // Col 0: Day ["จันทร์", "อังคาร", ...]
+
+    const headerRow = data[0]
+    const timeSlots = [] // [{ start: {h, m}, end: {h, m}, colIndex: 1 }]
+
+    // 1. Parse Header for Time Slots
+    for (let i = 1; i < headerRow.length; i++) {
+      const val = headerRow[i]
+      if (!val) continue
+
+      // Clean "08:00 - 09:00" -> "08:00-09:00"
+      const timeStr = String(val).replace(/\s/g, '').replace(/\./g, ':')
+      const parts = timeStr.split('-')
+      if (parts.length === 2) {
+        const start = parseTimeStr(parts[0])
+        const end = parseTimeStr(parts[1])
+        if (start && end) {
+          timeSlots.push({ start, end, colIndex: i })
+        }
+      }
+    }
+
+    if (timeSlots.length === 0) {
+      throw new Error('ไม่พบข้อมูลช่วงเวลาในแถวแรก (ตัวอย่าง: 08:00 - 09:00)')
+    }
+
+    const expandedBookings = []
+    const startDate = new Date(importRange.start)
+    const endDate = new Date(importRange.end)
+    startDate.setHours(0, 0, 0, 0)
+    endDate.setHours(23, 59, 59, 999)
+    let targetRoomName = 'ห้องระบุไม่ได้'
+    let targetRoomId = null
+
+    if (selectedRoom) { // selectedRoom is an ID from the filter
+      const r = rooms.find(room => String(room.id) === String(selectedRoom))
+      if (r) {
+        targetRoomName = r.name
+        targetRoomId = r.id
+      }
+    }
+
+    // 2. Iterate Rows (Days)
+    for (let r = 1; r < data.length; r++) {
+      const row = data[r]
+      if (!row || row.length === 0) continue
+
+      const dayStr = row[0]
+      const targetDay = getDayNumber(dayStr) // 0-6 or -1
+
+      // Filter: Only Mon-Fri
+      if (targetDay === -1 || targetDay === 0 || targetDay === 6) continue
+
+      // 3. Iterate Time Columns
+      let currentBooking = null
+
+      for (let i = 0; i < timeSlots.length; i++) {
+        const slot = timeSlots[i]
+        const cellContent = row[slot.colIndex]
+
+        // Check if cell has content
+        const hasContent = cellContent && String(cellContent).trim().length > 0
+
+        if (hasContent) {
+          const contentStr = String(cellContent).trim()
+
+          // Check if matches previous booking to continue/merge
+          if (currentBooking && currentBooking.content === contentStr) {
+            // Extend end time
+            currentBooking.end = slot.end
+          } else {
+            // Finalize previous if exists
+            if (currentBooking) {
+              addBookingsFromMatrix(currentBooking, targetDay, startDate, endDate, expandedBookings, targetRoomName, targetRoomId, dayStr)
+            }
+            // Start new booking
+            currentBooking = {
+              start: slot.start,
+              end: slot.end,
+              content: contentStr
+            }
+          }
+        } else {
+          // Empty cell, finalize previous if exists
+          if (currentBooking) {
+            addBookingsFromMatrix(currentBooking, targetDay, startDate, endDate, expandedBookings, targetRoomName, targetRoomId, dayStr)
+            currentBooking = null
+          }
+        }
+      }
+      // End of row, finalize last
+      if (currentBooking) {
+        addBookingsFromMatrix(currentBooking, targetDay, startDate, endDate, expandedBookings, targetRoomName, targetRoomId, dayStr)
+      }
+    }
+
+    return expandedBookings
+  }
+
+  // Helper to push bookings
+  const addBookingsFromMatrix = (bookingData, dayOfWeek, rangeStart, rangeEnd, results, roomName, roomId, dayDisplay) => {
+
+    // Parse Subject and Section "Subject (Section)"
+    // e.g. "COM 2602 (51)" -> Subject: COM 2602, Section: 51
+    let subject = bookingData.content
+    let section = 'ไม่ระบุ'
+
+    const match = bookingData.content.match(/^(.*?)\s*\((.*?)\)$/)
+    if (match) {
+      subject = match[1]
+      section = match[2]
+    }
+
+    let current = new Date(rangeStart)
+    while (current <= rangeEnd) {
+      if (current.getDay() === dayOfWeek) {
+        const bStart = new Date(current)
+        bStart.setHours(bookingData.start.hours, bookingData.start.minutes, 0, 0)
+
+        const bEnd = new Date(current)
+        bEnd.setHours(bookingData.end.hours, bookingData.end.minutes, 0, 0)
+
+        results.push({
+          id: `matrix_${results.length}`,
+          room_name: roomName,
+          user_name: 'Admin Import',
+          start_time: formatDateLocal(bStart),
+          end_time: formatDateLocal(bEnd),
+          purpose: subject,
+          section: section,
+          location: 'ไม่ระบุ',
+          notes: '',
+          status: 'pending',
+          is_imported: true,
+          room_id: roomId,
+          original_day: dayDisplay
+        })
+      }
+      current.setDate(current.getDate() + 1)
+    }
+  }
+
+  /* original processExcelData logic for daily import */
   const processExcelData = (data) => {
     if (data.length < 2) {
-      setImportError('ไฟล์ Excel ต้องมีข้อมูลอย่างน้อย 2 แถว (หัวข้อและข้อมูล)')
-      return []
+      throw new Error('ไฟล์ Excel ต้องมีข้อมูลอย่างน้อย 2 แถว')
     }
 
     const headers = data[0]
@@ -379,8 +670,8 @@ export default function AdminSchedulePage() {
     const endHour = 20
     const slots = []
     for (let h = startHour; h < endHour; h++) {
-      const start = `${String(h).padStart(2, '0')}:00`
-      const end = `${String(h + 1).padStart(2, '0')}:00`
+      const start = `${h}:00`
+      const end = `${h + 1}:00`
       slots.push({ start, end })
     }
     return slots
@@ -527,10 +818,43 @@ export default function AdminSchedulePage() {
       )}
 
       <AdminHeader
-        title="ตารางการใช้ห้อง"
-        subtitle="ตรวจสอบตารางการใช้งานห้องเรียนและห้องปฏิบัติการคอมพิวเตอร์"
+        title="ตารางเรียน"
+        subtitle="ตรวจสอบตารางเรียนในแต่ละเทอม"
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
+            {importMode === 'weekly' && (
+              <div className="flex gap-2 items-center bg-white p-1 rounded-lg border border-gray-200 shadow-sm animate-fadeIn">
+                <input
+                  type="date"
+                  value={importRange.start}
+                  onChange={(e) => setImportRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-gray-400">→</span>
+                <input
+                  type="date"
+                  value={importRange.end}
+                  onChange={(e) => setImportRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setImportMode('daily')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${importMode === 'daily' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              >
+                รายวัน
+              </button>
+              <button
+                onClick={() => setImportMode('weekly')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${importMode === 'weekly' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              >
+                รายสัปดาห์
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -548,63 +872,60 @@ export default function AdminSchedulePage() {
             >
               นำเข้า Excel
             </AdminButton>
+            <button
+              onClick={handleClearSchedule}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 border border-red-200"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              ล้างข้อมูล
+            </button>
           </div>
         }
       />
 
       <AdminCard>
-        <div className="flex flex-col lg:flex-row gap-6 justify-between items-end lg:items-center">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full lg:w-auto flex-1">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">เลือกห้อง</label>
-              <div className="relative">
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4">
+          {/* Filters and Navigation Row */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-sm">
+            {/* Left Side: Room & Year/Sem */}
+            <div className="space-y-3 w-full md:w-auto">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-700 min-w-[40px]">ห้อง:</span>
                 <select
                   value={selectedRoom}
                   onChange={(e) => setSelectedRoom(e.target.value)}
-                  className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-shadow"
+                  className="border border-gray-300 rounded px-2 py-1 min-w-[300px] focus:outline-none focus:border-blue-500"
                 >
-                  <option value="">ทั้งหมด</option>
-                  {rooms.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
+                  <option value="">-- เลือกห้อง --</option>
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      {room.name} {room.capacity ? `: ความจุ ${room.capacity}` : ''}
                     </option>
                   ))}
                 </select>
-                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </div>
               </div>
-            </div>
 
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">ปีการศึกษา</label>
-                <div className="relative">
-                  <select
-                    value={academicYear}
-                    onChange={(e) => handleTermChange(e.target.value, selectedSemester)}
-                    className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-shadow"
-                  >
-                    <option value="2567">2567</option>
-                    <option value="2568">2568</option>
-                    <option value="2569">2569</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">เทอม</label>
-                <div className="flex bg-gray-100 p-1 rounded-xl h-[42px]">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-700 min-w-[40px]">ปีการศึกษา:</span>
+                <select
+                  value={academicYear}
+                  onChange={(e) => handleTermChange(e.target.value, selectedSemester)}
+                  className="border border-gray-300 rounded px-2 py-1 w-24 focus:outline-none focus:border-blue-500"
+                >
+                  {[2567, 2568, 2569, 2570].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1 ml-2">
+                  <span className="text-gray-500">/</span>
                   {[1, 2, 3].map(sem => (
                     <button
                       key={sem}
                       onClick={() => handleTermChange(academicYear, sem)}
-                      className={`flex-1 rounded-lg text-sm font-bold transition-all ${selectedSemester === sem
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-900'
-                        }`}
+                      className={`px-2 py-0.5 rounded ${selectedSemester === sem ? 'text-blue-600 font-bold underline' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                       {sem}
                     </button>
@@ -612,217 +933,230 @@ export default function AdminSchedulePage() {
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl w-full lg:w-auto justify-between lg:justify-start">
-            <button
-              onClick={() => {
-                const currentDate = new Date(selectedDate)
-                const prevWeek = new Date(currentDate)
-                prevWeek.setDate(currentDate.getDate() - 7)
-                setSelectedDate(prevWeek.toISOString().split('T')[0])
-              }}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-gray-600 transition-all">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-
-            <div className="text-center min-w-[200px]">
-              <div className="text-sm text-gray-500 mb-0.5 font-medium">สัปดาห์ที่เลือก</div>
-              <div className="text-sm font-bold text-gray-900 bg-white border border-gray-200 px-3 py-1 rounded-lg shadow-sm">
-                {formatDateToThaiShort(weekStart)} - {formatDateToThaiShort(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
+            {/* Right Side: Date Navigator */}
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-gray-700">ระหว่าง:</span>
+              <div className="flex items-center text-blue-800 font-medium">
+                <button
+                  onClick={() => {
+                    const currentDate = new Date(selectedDate)
+                    const prevWeek = new Date(currentDate)
+                    prevWeek.setDate(currentDate.getDate() - 7)
+                    setSelectedDate(prevWeek.toISOString().split('T')[0])
+                  }}
+                  className="px-2 text-gray-400 hover:text-blue-600"
+                >
+                  ◀
+                </button>
+                <span>
+                  {formatDateToThaiShort(new Date(selectedDate))} - {(() => {
+                    const d = new Date(selectedDate)
+                    d.setDate(d.getDate() + 6)
+                    return formatDateToThaiShort(d)
+                  })()}
+                </span>
+                <button
+                  onClick={() => {
+                    const currentDate = new Date(selectedDate)
+                    const nextWeek = new Date(currentDate)
+                    nextWeek.setDate(currentDate.getDate() + 7)
+                    setSelectedDate(nextWeek.toISOString().split('T')[0])
+                  }}
+                  className="px-2 text-gray-400 hover:text-blue-600"
+                >
+                  ▶
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline mt-1"
-              >
-                กลับไปสัปดาห์นี้
-              </button>
             </div>
-
-            <button
-              onClick={() => {
-                const currentDate = new Date(selectedDate)
-                const nextWeek = new Date(currentDate)
-                nextWeek.setDate(currentDate.getDate() + 7)
-                setSelectedDate(nextWeek.toISOString().split('T')[0])
-              }}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-gray-600 transition-all"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
           </div>
         </div>
-      </AdminCard>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {rooms.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">ไม่พบข้อมูลห้อง</h3>
-            <p className="text-gray-500">กรุณาตรวจสอบการเชื่อมต่อ API หรือลองรีเฟรชหน้า</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-10 bg-gray-50/95 backdrop-blur text-gray-700 px-4 py-3 text-center text-xs font-bold uppercase tracking-wider border-b border-r border-gray-200 min-w-[100px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                    วัน/เวลา
-                  </th>
-                  {generateTimeSlots().map((slot, idx) => (
-                    <th key={idx} className="bg-gray-50 text-gray-600 px-2 py-3 text-center text-xs font-bold uppercase tracking-wider border-b border-r border-gray-200 min-w-[80px]">
-                      {slot.start}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white">
-                {getWeekDays().map((day, dayIdx) => {
-                  const isWeekend = day.getDay() === 0 || day.getDay() === 6
-                  const isToday = isSameDay(day, new Date())
-                  return (
-                    <tr key={dayIdx} className={isWeekend ? 'bg-gray-50/50' : ''}>
-                      <td className={`sticky left-0 z-10 px-4 py-3 text-center border-b border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${isToday ? 'bg-blue-50/90 text-blue-700 font-bold' : 'bg-white text-gray-900 font-medium'
-                        }`}>
-                        <div className="flex flex-col">
-                          <span className="text-sm">{getThaiDayAbbr(day)}</span>
-                          <span className="text-xs opacity-75">{day.getDate()}</span>
-                        </div>
-                      </td>
-                      {buildDayCells(day, selectedRoom).map((cell, cellIdx) => {
-                        if (cell.type === 'empty') {
-                          return <td key={cellIdx} className="border-b border-r border-gray-100/50 p-1 h-14" />
-                        }
-                        const b = cell.booking
-                        const statusColors = {
-                          pending: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
-                          approved: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
-                          rejected: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
-                          cancelled: 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'
-                        }
-                        return (
-                          <td
-                            key={cellIdx}
-                            colSpan={cell.span}
-                            className="p-1 h-14 border-b border-r border-gray-100/50 relative group"
-                          >
-                            <div className={`w-full h-full rounded-lg text-xs p-1.5 border overflow-hidden cursor-help transition-all shadow-sm ${statusColors[b.status] || 'bg-gray-100'}`}>
-                              <div className="font-bold truncate">{b.purpose || 'จอง'}</div>
-                              <div className="truncate opacity-75">{b.user_name}</div>
-
-                              <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white p-3 rounded-xl shadow-xl text-xs text-left animate-fadeIn">
-                                <div className="font-bold text-sm mb-1 text-white border-b border-gray-700 pb-1">{b.purpose}</div>
-                                <div className="space-y-1 text-gray-300">
-                                  <p>👤 {b.user_name}</p>
-                                  <p>🕒 {formatDateTimeToThai(b.start_time)} - {formatDateTimeToThai(b.end_time).split(' ')[1]}</p>
-                                  <p>📍 {b.room_name}</p>
-                                  <p>📝 {b.notes || '-'}</p>
-                                </div>
-                                <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900"></div>
-                              </div>
-                            </div>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scaleIn">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">ยืนยันการนำเข้าข้อมูล</h3>
-                <p className="text-sm text-gray-500 mt-1">พบข้อมูล {importedData.length} รายการจากไฟล์ Excel</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          {rooms.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
               </div>
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">ไม่พบข้อมูลห้อง</h3>
+              <p className="text-gray-500">กรุณาตรวจสอบการเชื่อมต่อ API หรือลองรีเฟรชหน้า</p>
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse border border-gray-400">
+                <thead>
+                  <tr className="bg-[#444] text-white">
+                    <th className="sticky left-0 z-10 bg-[#444] px-2 py-3 text-center text-sm font-bold border border-gray-500 w-[80px]">
+                      Day/Time
+                    </th>
+                    {generateTimeSlots().map((slot, idx) => (
+                      <th key={idx} className="bg-[#444] px-1 py-3 text-center text-xs font-medium border border-gray-500 min-w-[100px]">
+                        {slot.start}-{slot.end}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white">
+                  {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+                    // Calculate Monday of the selected week
+                    const current = new Date(selectedDate)
+                    const day = current.getDay()
+                    const diff = current.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+                    const monday = new Date(current.setDate(diff))
 
-            <div className="overflow-y-auto flex-1 p-6">
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">ห้อง</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">ผู้จอง</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วัน/เวลา</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วิชา/รายละเอียด</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {importedData.slice(0, 100).map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {item.room_name}
-                          {!item.room_id && <span className="ml-2 text-xs text-red-500 bg-red-50 px-1.5 py-0.5 rounded">ไม่พบในระบบ</span>}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.user_name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          <div>{formatDateToThaiShort(new Date(item.start_time))}</div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(item.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} -
-                            {new Date(item.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                    const currentDay = new Date(monday)
+                    currentDay.setDate(monday.getDate() + offset)
+
+                    // Determine colors based on actual day of week
+                    // 0=Sun, 6=Sat in JS getDay()
+                    const dayOfWeek = currentDay.getDay()
+
+                    let dayColor = 'bg-[#999]' // Default Gray
+                    let textColor = 'text-white'
+
+                    if (dayOfWeek === 6) dayColor = 'bg-[#d9534f]' // Saturday Red
+                    if (dayOfWeek === 0) dayColor = 'bg-[#d9534f]' // Sunday Red
+
+                    const cells = buildDayCells(currentDay, selectedRoom)
+
+                    return (
+                      <tr key={offset} className="border-b border-gray-400 h-16">
+                        <td className={`sticky left-0 z-10 text-center border border-gray-400 ${dayColor} ${textColor}`}>
+                          <div className="flex flex-col items-center justify-center font-bold">
+                            <span>{getThaiDayAbbr(currentDay)}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          <div className="font-medium">{item.purpose}</div>
-                          <div className="text-xs text-gray-500">{item.section !== 'ไม่ระบุ' && `Sec: ${item.section}`}</div>
-                        </td>
+                        {buildDayCells(currentDay, selectedRoom).map((cell, cellIdx) => {
+                          if (cell.type === 'empty') {
+                            return <td key={cellIdx} className="border border-gray-300 h-full bg-white" />
+                          }
+                          const b = cell.booking
+                          return (
+                            <td
+                              key={cellIdx}
+                              colSpan={cell.span}
+                              className="p-0 border border-black h-full relative"
+                            >
+                              <div className="w-full h-full bg-[#bfdbfe] text-blue-900 text-[11px] p-1 flex flex-col items-center justify-center text-center overflow-hidden leading-tight">
+                                {/* Top: Section/Code */}
+                                <div className="font-bold underline">{b.purpose}</div>
+                                {/* Middle: Section */}
+                                <div>{b.section && `Sec ${b.section}`}</div>
+                                {/* Bottom: Room */}
+                                <div>{b.room_name}</div>
+
+                                <div className="hidden group-hover:block absolute z-50 bg-black text-white p-2 text-xs rounded shadow-lg top-full left-0 whitespace-nowrap">
+                                  {b.user_name} - {b.purpose} ({b.start_time}-{b.end_time})
+                                </div>
+                              </div>
+                            </td>
+                          )
+                        })}
                       </tr>
-                    ))}
-                    {importedData.length > 100 && (
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scaleIn">
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">ยืนยันการนำเข้าข้อมูล</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {importMode === 'weekly'
+                      ? `พบข้อมูล ${importedData.length} รายการ (สร้างจากตารางเรียนแบบรายสัปดาห์)`
+                      : `พบข้อมูล ${importedData.length} รายการจากไฟล์ Excel`
+                    }
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 p-6">
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <td colSpan="4" className="px-4 py-3 text-center text-sm text-gray-500 italic bg-gray-50">
-                          ... และอีก {importedData.length - 100} รายการ
-                        </td>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วัน</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">ห้อง</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วัน/เวลา</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">วิชา/รายละเอียด</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {importedData.slice(0, 100).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-bold text-gray-800">
+                            {item.original_day || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {item.room_name}
+                            {!item.room_id && <span className="ml-2 text-xs text-red-500 bg-red-50 px-1.5 py-0.5 rounded">ไม่พบในระบบ</span>}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            <div>{formatDateToThaiShort(new Date(item.start_time))}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(item.start_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} -
+                              {new Date(item.end_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            <div className="font-medium">{item.purpose}</div>
+                            <div className="text-xs text-gray-500">{item.user_name} (Sec: {item.section !== 'ไม่ระบุ' ? item.section : '-'})</div>
+                          </td>
+                        </tr>
+                      ))}
+                      {importedData.length > 100 && (
+                        <tr>
+                          <td colSpan="4" className="px-4 py-3 text-center text-sm text-gray-500 italic bg-gray-50">
+                            ... และอีก {importedData.length - 100} รายการ
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-bold hover:bg-white transition-all shadow-sm"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleImportConfirm}
+                  disabled={importLoading}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
+                >
+                  {importLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      กำลังนำเข้า...
+                    </>
+                  ) : (
+                    'ยืนยันนำเข้าข้อมูล'
+                  )}
+                </button>
               </div>
             </div>
-
-            <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-bold hover:bg-white transition-all shadow-sm"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleImportConfirm}
-                disabled={importLoading}
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
-              >
-                {importLoading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    กำลังนำเข้า...
-                  </>
-                ) : (
-                  'ยืนยันนำเข้าข้อมูล'
-                )}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+      </AdminCard >
+    </div >
   )
 }

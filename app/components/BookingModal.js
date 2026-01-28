@@ -734,7 +734,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
               <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 {room?.image ? (
                   <img
-                    src={`${API_URL}/${room.image}`}
+                    src={`${API_URL}/storage/${room.image}`}
                     alt={room.name}
                     className="w-full h-full object-cover rounded-lg"
                   />

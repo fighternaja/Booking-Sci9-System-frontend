@@ -8,7 +8,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import { formatDateTimeToThai } from '../../utils/dateUtils'
 import AdminButton from '../components/AdminButton'
 import AdminCard from '../components/AdminCard'
-import AdminCard from '../components/AdminCard'
 import AdminHeader from '../components/AdminHeader'
 import { API_URL } from '../../lib/api'
 
@@ -156,17 +155,23 @@ export default function AdminBookingsPage() {
   }
 
   const handleCancel = async (booking) => {
-    const result = await Swal.fire({
-      title: 'ยืนยันการยกเลิก?',
-      text: "การยกเลิกนี้จะมีผลทันทีและไม่สามารถกู้คืนได้",
-      icon: 'warning',
+    const { value: reason } = await Swal.fire({
+      title: 'ระบุเหตุผลการยกเลิก',
+      input: 'text',
+      inputLabel: 'เหตุผลการยกเลิก',
+      inputPlaceholder: 'เช่น ผู้จองแจ้งยกเลิก, ห้องไม่พร้อมใช้งาน',
       showCancelButton: true,
       confirmButtonColor: '#EF4444',
       confirmButtonText: 'ยืนยันยกเลิก',
-      cancelButtonText: 'เก็บไว้'
+      cancelButtonText: 'กลับ',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'กรุณาระบุเหตุผลการยกเลิก'
+        }
+      }
     })
 
-    if (!result.isConfirmed) return
+    if (!reason) return
 
     try {
       const res = await fetch(`${API_URL}/api/bookings/${booking.id}/cancel`, {
@@ -175,7 +180,7 @@ export default function AdminBookingsPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ cancellation_reason: 'Admin cancelled' })
+        body: JSON.stringify({ cancellation_reason: reason })
       })
 
       if (!res.ok) {

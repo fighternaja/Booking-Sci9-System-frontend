@@ -8,7 +8,7 @@ import AdminCard from '../components/AdminCard'
 import AdminButton from '../components/AdminButton'
 import StatCard from '../components/StatCard'
 import DashboardCharts from '../components/DashboardCharts'
-import { API_URL } from '../../lib/api'
+import { API_URL, getStorageUrl } from '../../lib/api'
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState({
@@ -107,26 +107,30 @@ export default function AdminReportsPage() {
 
   const calculatePopularRooms = (bookings) => {
     const roomCounts = {}
+    const roomImages = {}
     bookings.forEach(b => {
       if (b.room && b.room.name) {
         roomCounts[b.room.name] = (roomCounts[b.room.name] || 0) + 1
+        if (b.room.image) roomImages[b.room.name] = b.room.image
       }
     })
     return Object.entries(roomCounts)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({ name, count, image: roomImages[name] }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
   }
 
   const calculateTopUsers = (bookings) => {
     const userCounts = {}
+    const userImages = {}
     bookings.forEach(b => {
       if (b.user && b.user.name) {
         userCounts[b.user.name] = (userCounts[b.user.name] || 0) + 1
+        if (b.user.profile_picture) userImages[b.user.name] = b.user.profile_picture
       }
     })
     return Object.entries(userCounts)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({ name, count, image: userImages[name] }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
   }
@@ -395,12 +399,31 @@ export default function AdminReportsPage() {
                 {filteredBookings.slice(0, 50).map((booking) => (
                   <tr key={booking.id} className="hover:bg-blue-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                      {booking.room?.name || '-'}
+                      <div className="flex items-center gap-3">
+                        {booking.room?.image && (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
+                            <img
+                              src={getStorageUrl(booking.room.image)}
+                              alt={booking.room.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <span>{booking.room?.name || '-'}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold mr-3 border border-blue-200">
-                          {booking.user?.name?.charAt(0).toUpperCase() || '?'}
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold mr-3 border border-blue-200 overflow-hidden">
+                          {booking.user?.profile_picture ? (
+                            <img
+                              src={getStorageUrl(booking.user.profile_picture)}
+                              alt={booking.user.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            booking.user?.name?.charAt(0).toUpperCase() || '?'
+                          )}
                         </div>
                         <span className="text-sm text-gray-700 font-medium">{booking.user?.name || '-'}</span>
                       </div>
@@ -445,6 +468,15 @@ export default function AdminReportsPage() {
                       }`}>
                       {index + 1}
                     </div>
+                    {room.image && (
+                      <div className="w-8 h-8 rounded bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 mr-3">
+                        <img
+                          src={getStorageUrl(room.image)}
+                          alt={room.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                     <span className="font-medium text-gray-900">{room.name}</span>
                   </div>
                   <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{room.count} ครั้ง</span>
@@ -470,6 +502,15 @@ export default function AdminReportsPage() {
                       }`}>
                       {index + 1}
                     </div>
+                    {user.image && (
+                      <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 mr-3">
+                        <img
+                          src={getStorageUrl(user.image)}
+                          alt={user.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                     <span className="font-medium text-gray-900">{user.name}</span>
                   </div>
                   <span className="text-sm font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">{user.count} ครั้ง</span>

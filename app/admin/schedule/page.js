@@ -9,7 +9,7 @@ import { formatDateToThaiShort, parseDate, formatDateTimeToThai } from '../../ut
 import AdminHeader from '../components/AdminHeader'
 import AdminCard from '../components/AdminCard'
 import AdminButton from '../components/AdminButton'
-import { API_URL } from '../../lib/api'
+import { API_URL, getStorageUrl } from '../../lib/api'
 
 export default function AdminSchedulePage() {
   const [rooms, setRooms] = useState([])
@@ -1045,8 +1045,19 @@ export default function AdminSchedulePage() {
                                 {/* Bottom: Room */}
                                 <div>{b.room_name}</div>
 
-                                <div className="hidden group-hover:block absolute z-50 bg-black text-white p-2 text-xs rounded shadow-lg top-full left-0 whitespace-nowrap">
-                                  {b.user_name} - {b.purpose} ({b.start_time}-{b.end_time})
+                                <div className="hidden group-hover:block absolute z-50 bg-black text-white p-2 text-xs rounded shadow-lg top-full left-0 whitespace-nowrap min-w-[150px]">
+                                  {b.room?.image && (
+                                    <div className="mb-2 w-full h-24 bg-gray-700 rounded overflow-hidden">
+                                      <img
+                                        src={getStorageUrl(b.room.image)}
+                                        alt={b.room.name || b.room_name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="font-bold mb-1">{b.room?.name || b.room_name}</div>
+                                  <div>{b.user_name || b.user?.name} - {b.purpose}</div>
+                                  <div className="text-gray-300">({b.start_time.split(' ')[1]?.slice(0, 5)}-{b.end_time.split(' ')[1]?.slice(0, 5)})</div>
                                 </div>
                               </div>
                             </td>

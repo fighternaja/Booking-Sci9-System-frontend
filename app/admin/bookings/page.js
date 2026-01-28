@@ -311,36 +311,17 @@ export default function AdminBookingsPage() {
             <AdminCard key={booking.id} className="group hover:shadow-md transition-all duration-300">
               <div className="flex flex-col lg:flex-row gap-6">
 
-                {/* Room Image */}
-                <div className="lg:w-48 w-full h-48 lg:h-auto bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 relative">
-                  {booking.room?.image ? (
-                    <img
-                      src={`${API_URL}/storage/${booking.room.image}`}
-                      alt={booking.room.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50">
-                      <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="absolute top-2 right-2 lg:hidden">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold border shadow-sm backdrop-blur-md ${booking.status === 'pending' ? 'bg-yellow-50/90 text-yellow-700 border-yellow-200' :
-                        booking.status === 'approved' ? 'bg-green-50/90 text-green-700 border-green-200' :
-                          booking.status === 'rejected' ? 'bg-red-50/90 text-red-700 border-red-200' :
-                            'bg-gray-50/90 text-gray-600 border-gray-200'
-                      }`}>
-                      {booking.status === 'pending' ? 'รออนุมัติ' :
-                        booking.status === 'approved' ? 'อนุมัติ' :
-                          booking.status === 'rejected' ? 'ปฏิเสธ' : 'ยกเลิก'}
-                    </span>
-                  </div>
-                </div>
-
                 {/* Time & Room (Left) */}
                 <div className="lg:w-1/4 flex flex-col justify-center border-b lg:border-b-0 lg:border-r border-gray-100 pb-4 lg:pb-0 lg:pr-6">
+                  {booking.room?.image && (
+                    <div className="mb-3 h-32 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                      <img
+                        src={`${API_URL}/storage/${booking.room.image}`}
+                        alt={booking.room.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                   <div className="text-sm font-bold text-blue-600 mb-1">{booking.room?.name}</div>
                   <div className="text-xl font-bold text-gray-900 leading-tight">
                     {formatDateTimeToThai(booking.start_time).split(' ')[0]}

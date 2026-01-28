@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function ProfilePage() {
   const { user, loading: authLoading, updateProfile } = useAuth()
@@ -30,11 +30,7 @@ export default function ProfilePage() {
         password: ''
       })
       if (user.profile_picture) {
-        if (user.profile_picture.startsWith('http')) {
-          setPreview(user.profile_picture)
-        } else {
-          setPreview(`${API_URL}/${user.profile_picture}`)
-        }
+        setPreview(getStorageUrl(user.profile_picture))
       }
     }
   }, [user, authLoading])

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import NotificationBell from './NotificationBell'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth()
@@ -28,13 +28,7 @@ export default function Navbar() {
   }
 
   const getProfileImageUrl = () => {
-    if (user?.profile_picture) {
-      if (user.profile_picture.startsWith('http://') || user.profile_picture.startsWith('https://')) {
-        return user.profile_picture
-      }
-      return `${API_URL}/${user.profile_picture}`
-    }
-    return null
+    return getStorageUrl(user?.profile_picture)
   }
 
   return (

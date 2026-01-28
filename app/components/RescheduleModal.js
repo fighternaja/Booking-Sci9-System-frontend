@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import Swal from 'sweetalert2'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function RescheduleModal({ isOpen, onClose, booking, onRescheduleSuccess }) {
   const [formData, setFormData] = useState({
@@ -234,6 +234,15 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            {booking.room?.image && (
+              <div className="w-full h-32 mb-4 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                <img
+                  src={getStorageUrl(booking.room.image)}
+                  alt={booking.room.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
             <h2 className="text-2xl font-bold text-gray-900 mb-1">เลื่อนจองห้อง</h2>
             <p className="text-gray-500 text-sm">
               {booking.room?.name || 'Sci9 204(COM)'}

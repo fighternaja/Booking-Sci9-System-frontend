@@ -9,7 +9,7 @@ import AdminButton from './components/AdminButton'
 import AdminCard from './components/AdminCard'
 import AdminHeader from './components/AdminHeader'
 import StatCard from './components/StatCard'
-import { API_URL } from '../lib/api'
+import { API_URL, getStorageUrl } from '../lib/api'
 
 export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState({
@@ -256,23 +256,34 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 {filteredBookings.slice(0, 5).map((booking) => (
                   <div key={booking.id} className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all bg-white">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="font-bold text-gray-900 truncate">{booking.room.name}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                          booking.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
-                            booking.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
-                              'bg-gray-50 text-gray-600 border-gray-200'
-                          }`}>
-                          {booking.status === 'pending' ? 'รออนุมัติ' :
-                            booking.status === 'approved' ? 'อนุมัติ' :
-                              booking.status === 'rejected' ? 'ปฏิเสธ' : 'ยกเลิก'}
-                        </span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-500 gap-3">
-                        <span className="flex items-center gap-1">📅 {formatDateTimeToThai(booking.start_time)}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="flex items-center gap-1 truncate">👤 {booking.user.name}</span>
+                    <div className="flex-1 min-w-0 flex items-center gap-4">
+                      {booking.room?.image && (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
+                          <img
+                            src={getStorageUrl(booking.room.image)}
+                            alt={booking.room.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-bold text-gray-900 truncate">{booking.room.name}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                            booking.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                              booking.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                                'bg-gray-50 text-gray-600 border-gray-200'
+                            }`}>
+                            {booking.status === 'pending' ? 'รออนุมัติ' :
+                              booking.status === 'approved' ? 'อนุมัติ' :
+                                booking.status === 'rejected' ? 'ปฏิเสธ' : 'ยกเลิก'}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-500 gap-3">
+                          <span className="flex items-center gap-1">📅 {formatDateTimeToThai(booking.start_time)}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className="flex items-center gap-1 truncate">👤 {booking.user.name}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -359,6 +370,15 @@ export default function AdminDashboard() {
                         }`}>
                         {i + 1}
                       </div>
+                      {room.image && (
+                        <div className="w-8 h-8 rounded bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
+                          <img
+                            src={getStorageUrl(room.image)}
+                            alt={room.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
                       <span className="font-semibold text-gray-700 text-sm">{room.name}</span>
                     </div>
                     <span className="text-xs font-bold text-gray-500">

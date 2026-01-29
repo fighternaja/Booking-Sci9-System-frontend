@@ -262,19 +262,7 @@ export default function RoomsPage() {
                 </select>
               </div>
 
-              {/* Status Filter */}
-              <div className="lg:w-56">
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 font-medium transition-all"
-                >
-                  <option value="all">ทุกสถานะ</option>
-                  {Object.entries(statuses).map(([key, value]) => (
-                    <option key={key} value={key}>{value}</option>
-                  ))}
-                </select>
-              </div>
+
             </div>
           </div>
         </div>

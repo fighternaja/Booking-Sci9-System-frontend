@@ -32,9 +32,6 @@ export default function Footer() {
               <li>
                 <a href="/about" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">เกี่ยวกับอาคาร</a>
               </li>
-              <li>
-                <a href="/login" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">เข้าสู่ระบบ</a>
-              </li>
             </ul>
           </div>
 
@@ -53,10 +50,10 @@ export default function Footer() {
               <li className="flex items-start text-gray-600 group">
                 <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 mt-0.5 group-hover:bg-indigo-600 group-hover:text-white transition-all">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
                   </svg>
                 </div>
-                {/*<a href="mailto:comsci@cmru.ac.th" className="hover:text-indigo-600">comsci@cmru.ac.th</a>*/}
+                <span><a href="https://www.computer.cmru.ac.th/" className="hover:text-indigo-600">https://www.computer.cmru.ac.th/</a></span>
               </li>
               <li className="flex items-start text-gray-600 group">
                 <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mr-3 mt-0.5 group-hover:bg-purple-600 group-hover:text-white transition-all">
@@ -65,7 +62,7 @@ export default function Footer() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <span>อาคาร Sci 9 ภาควิชาคอมพิวเตอร์ คณะวิทยาศาสตร์และเทคโนโลยี</span>
+                <span>180 หมู่ 7 ถนนโชตนา (เชียงใหม่-ฝาง) ตำบลขี้เหล็ก อำเภอแม่ริม จังหวัดเชียงใหม่ 50180</span>
               </li>
             </ul>
           </div>

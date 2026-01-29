@@ -602,14 +602,14 @@ export default function MyBookingsPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">เลือกอุปกรณ์</label>
                 <div className="relative">
                   <select
                     value={equipmentFormData.equipment_id}
                     onChange={(e) => setEquipmentFormData({ ...equipmentFormData, equipment_id: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none appearance-none font-medium"
+                    className="w-full pl-4 pr-10 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none appearance-none font-medium text-gray-700 shadow-sm"
                   >
                     <option value="">-- กรุณาเลือก --</option>
                     {availableEquipment.map((eq) => (
@@ -628,25 +628,25 @@ export default function MyBookingsPage() {
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">จำนวนที่ต้องการ</label>
-                <div className="flex items-center border border-gray-200 rounded-xl bg-gray-50 w-full max-w-[140px]">
+                <div className="flex items-center gap-4">
                   <button
                     onClick={() => setEquipmentFormData(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))}
-                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-l-xl transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-gray-600 bg-white border border-gray-200 rounded-full hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 shadow-sm"
                   >
-                    -
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
                   </button>
                   <input
                     type="number"
                     value={equipmentFormData.quantity}
                     onChange={(e) => setEquipmentFormData({ ...equipmentFormData, quantity: parseInt(e.target.value) || 1 })}
-                    className="flex-1 text-center bg-transparent border-none focus:ring-0 p-0 font-bold text-gray-900"
+                    className="w-16 text-center bg-gray-50 border border-gray-200 rounded-xl py-2 font-bold text-gray-900 text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     min="1"
                   />
                   <button
                     onClick={() => setEquipmentFormData(p => ({ ...p, quantity: p.quantity + 1 }))}
-                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-r-xl transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-gray-600 bg-white border border-gray-200 rounded-full hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 shadow-sm"
                   >
-                    +
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   </button>
                 </div>
               </div>
@@ -656,17 +656,17 @@ export default function MyBookingsPage() {
                 <textarea
                   value={equipmentFormData.notes}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, notes: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none resize-none font-medium"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none resize-none font-medium text-gray-700 shadow-sm"
                   rows="3"
                   placeholder="เช่น ขอสายต่อ HDMI ยาวพิเศษ..."
                 />
               </div>
             </div>
 
-            <div className="p-6 pt-2 flex gap-3">
+            <div className="p-6 pt-2 flex gap-3 bg-gray-50/50">
               <button
                 onClick={() => setShowEquipmentModal(false)}
-                className="flex-1 px-4 py-3 text-gray-700 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+                className="flex-1 px-4 py-3 text-gray-700 font-bold hover:bg-gray-200 bg-white border border-gray-200 rounded-xl transition-all shadow-sm hover:shadow-md"
               >
                 ยกเลิก
               </button>

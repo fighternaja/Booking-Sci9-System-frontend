@@ -223,7 +223,7 @@ export default function RescheduleModal({ isOpen, onClose, booking, onReschedule
 
   return (
     <div className="fixed inset-0 bg-white/10 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 transform transition-all scale-100">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-100 transform transition-all scale-100 scrollbar-hide">
         <div className="p-8">
           <div className="text-center mb-8 relative">
             <button

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import Swal from 'sweetalert2'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function LoginPage() {
@@ -31,6 +32,13 @@ export default function LoginPage() {
     const result = await login(formData.email, formData.password)
 
     if (result.success) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'เข้าสู่ระบบสำเร็จ',
+        text: 'ยินดีต้อนรับกลับมา!',
+        timer: 1500,
+        showConfirmButton: false
+      })
       router.push('/')
     } else {
       setError(result.message)

@@ -23,6 +23,8 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
   const [cancellationReason, setCancellationReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState([])
+  const [availableEquipment, setAvailableEquipment] = useState([])
+  const [loadingEquipment, setLoadingEquipment] = useState(false)
 
   // Recurring Bookings State
   const [isRecurring, setIsRecurring] = useState(false)
@@ -69,7 +71,10 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       setAttendees([])
       setAttendeeEmail('')
       setAttendeeName('')
+      setAttendeeName('')
       setSelectedEquipment([])
+    } else {
+      fetchEquipment()
     }
   }, [isOpen])
 
@@ -211,6 +216,39 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     } finally {
       setCheckingAvailability(false)
     }
+  }
+
+
+  const fetchEquipment = async () => {
+    try {
+      setLoadingEquipment(true)
+      const response = await fetch(`${API_URL}/api/equipment`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setAvailableEquipment(data.data.filter(e => e.status === 'active'))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching equipment:', error)
+    } finally {
+      setLoadingEquipment(false)
+    }
+  }
+
+  const handleEquipmentToggle = (equipmentId) => {
+    setSelectedEquipment(prev => {
+      if (prev.includes(equipmentId)) {
+        return prev.filter(id => id !== equipmentId)
+      } else {
+        return [...prev, equipmentId]
+      }
+    })
   }
 
 
@@ -589,6 +627,30 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       } else {
         setError(data.message || 'เกิดข้อผิดพลาดในการจองห้อง')
       }
+
+      // Add equipment if any
+      if (selectedEquipment.length > 0 && data.success) {
+        const bookingId = data.data.id
+        for (const equipmentId of selectedEquipment) {
+          try {
+            await fetch(`${API_URL}/api/bookings/${bookingId}/equipment`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({
+                equipment_id: equipmentId,
+                quantity: 1
+              })
+            })
+          } catch (err) {
+            console.error('Error adding equipment:', err)
+          }
+        }
+      }
+
     } catch (error) {
       console.error('Booking error:', error)
       setError('เกิดข้อผิดพลาดในการจองห้อง')
@@ -1041,6 +1103,44 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
                   placeholder="ระบุรายละเอียดเพิ่มเติม"
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-all duration-200 bg-white hover:border-gray-300 resize-none"
                 />
+              </div>
+
+              {/* Equipment Section */}
+              <div className="space-y-4 p-5 bg-white/50 backdrop-blur-sm rounded-xl border-2 border-gray-200">
+                <div className="flex items-center mb-3">
+                  <svg className="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <label className="text-sm font-semibold text-gray-900">อุปกรณ์ที่ต้องการเบิก (Equipment)</label>
+                </div>
+
+                {loadingEquipment ? (
+                  <div className="text-sm text-gray-500 py-2 text-center">กำลังโหลดข้อมูลอุปกรณ์...</div>
+                ) : availableEquipment.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {availableEquipment.map((item) => (
+                      <label key={item.id} className={`flex items-start p-3 rounded-lg border cursor-pointer transition-all ${selectedEquipment.includes(item.id)
+                          ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-300'
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedEquipment.includes(item.id)}
+                          onChange={() => handleEquipmentToggle(item.id)}
+                          className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        />
+                        <div className="ml-3">
+                          <span className="block text-sm font-medium text-gray-900">{item.name}</span>
+                          {item.description && (
+                            <span className="block text-xs text-gray-500 mt-0.5">{item.description}</span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 border border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">ไม่มีอุปกรณ์ให้เบิก</div>
+                )}
               </div>
 
               {/* Recurring Booking Section */}

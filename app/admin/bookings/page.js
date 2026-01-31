@@ -232,7 +232,7 @@ export default function AdminBookingsPage() {
     <div className="space-y-8">
       {/* Header */}
       <AdminHeader
-        title="จัดการการจอง"
+        title="จัดการจอง"
         subtitle="อนุมัติ ปฏิเสธ และจัดการการจองห้อง"
       />
 
@@ -382,7 +382,7 @@ export default function AdminBookingsPage() {
                   )}
                   {(booking.status === 'approved' || booking.status === 'pending') && (
                     <AdminButton onClick={() => handleEdit(booking)} variant="secondary" size="sm" className="w-full">
-                      แก้ไข
+                      เลื่อนจอง
                     </AdminButton>
                   )}
                   {(booking.status !== 'cancelled' && booking.status !== 'rejected') && (

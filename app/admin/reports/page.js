@@ -190,6 +190,59 @@ export default function AdminReportsPage() {
     try {
       const workbook = XLSX.utils.book_new()
 
+      // All bookings sheet (First Sheet)
+      if (filteredBookings.length > 0) {
+        const bookingsData = filteredBookings.map(b => {
+          const startDate = new Date(b.start_time)
+          const endDate = new Date(b.end_time)
+
+          return {
+            'ชื่อผู้จอง': b.user?.name || '-',
+            'ชื่อห้อง': b.room?.name || '-',
+            'วันที่จอง': new Date(b.created_at).toLocaleDateString('th-TH', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            'วันที่เริ่มต้น': startDate.toLocaleDateString('th-TH', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            'วันที่สิ้นสุด': endDate.toLocaleDateString('th-TH', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            'เวลาที่เริ่มต้น': startDate.toLocaleTimeString('th-TH', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            'เวลาที่สิ้นสุด': endDate.toLocaleTimeString('th-TH', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            'อุปกรณ์': b.equipment ? b.equipment.map(e => e.name).join(', ') : '-',
+            'หมายเหตุ': b.purpose || '-'
+          }
+        })
+        const bookingsSheet = XLSX.utils.json_to_sheet(bookingsData)
+
+        bookingsSheet['!cols'] = [
+          { wch: 25 }, // ชื่อผู้จอง
+          { wch: 25 }, // ห้อง
+          { wch: 20 }, // วันที่จอง
+          { wch: 20 }, // วันที่เริ่มต้น
+          { wch: 20 }, // วันที่สิ้นสุด
+          { wch: 15 }, // เวลาที่เริ่มต้น
+          { wch: 15 }, // เวลาที่สิ้นสุด
+          { wch: 30 }, // อุปกรณ์
+          { wch: 40 }  // หมายเหตุ
+        ]
+
+        XLSX.utils.book_append_sheet(workbook, bookingsSheet, 'รายการจอง')
+      }
+
       // Summary sheet
       const summaryData = [
         { 'รายการ': 'การจองทั้งหมด', 'จำนวน': reports.totalBookings },
@@ -223,48 +276,7 @@ export default function AdminReportsPage() {
         XLSX.utils.book_append_sheet(workbook, usersSheet, 'ผู้ใช้งานบ่อย')
       }
 
-      // All bookings sheet
-      if (filteredBookings.length > 0) {
-        const bookingsData = filteredBookings.map(b => {
-          const startDate = new Date(b.start_time)
-          const endDate = new Date(b.end_time)
 
-          return {
-            'ชื่อผู้ใช้': b.user?.name || '-',
-            'ห้อง': b.room?.name || '-',
-            'วันที่เริ่มต้น': startDate.toLocaleDateString('th-TH', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }),
-            'วันที่สิ้นสุด': endDate.toLocaleDateString('th-TH', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }),
-            'เวลาที่จอง': `${startDate.toLocaleTimeString('th-TH', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })} - ${endDate.toLocaleTimeString('th-TH', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}`,
-            'หมายเหตุ': b.purpose || '-'
-          }
-        })
-        const bookingsSheet = XLSX.utils.json_to_sheet(bookingsData)
-
-        bookingsSheet['!cols'] = [
-          { wch: 20 }, // ชื่อผู้ใช้
-          { wch: 25 }, // ห้อง
-          { wch: 25 }, // วันที่เริ่มต้น
-          { wch: 25 }, // วันที่สิ้นสุด
-          { wch: 20 }, // เวลาที่จอง
-          { wch: 40 }  // หมายเหตุ
-        ]
-
-        XLSX.utils.book_append_sheet(workbook, bookingsSheet, 'รายการจอง')
-      }
 
       XLSX.writeFile(workbook, `รายงานการจอง_${new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {

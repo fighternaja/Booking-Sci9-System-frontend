@@ -32,6 +32,33 @@ export default function AdminReportsPage() {
   const [exportLoading, setExportLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  // View Mode State
+  const [viewMode, setViewMode] = useState('monthly') // daily, monthly, yearly
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+
+  // Processed Data State
+  const [processedData, setProcessedData] = useState({
+    stats: {
+      totalBookings: 0,
+      approvedBookings: 0,
+      pendingBookings: 0,
+      rejectedBookings: 0,
+      cancelledBookings: 0
+    },
+    charts: {
+      trends: [],
+      status_distribution: [],
+      peak_hours: []
+    },
+    popularRooms: [],
+    topUsers: [],
+    demandByDay: [],
+    peakHours: [],
+    filteredBookings: []
+  })
   const { token } = useAuth()
 
   useEffect(() => {
@@ -103,6 +130,136 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Recalculate data when filters or raw data change
+  useEffect(() => {
+    if (reports.allBookings.length > 0) {
+      processData()
+    }
+  }, [reports.allBookings, viewMode, selectedDate, selectedMonth, selectedYear, searchTerm, statusFilter])
+
+  const processData = () => {
+    // 1. Filter by Time Range
+    let timeFiltered = reports.allBookings.filter(b => {
+      const bookingDate = new Date(b.start_time)
+
+      if (viewMode === 'daily') {
+        const target = new Date(selectedDate)
+        return bookingDate.getDate() === target.getDate() &&
+          bookingDate.getMonth() === target.getMonth() &&
+          bookingDate.getFullYear() === target.getFullYear()
+      } else if (viewMode === 'monthly') {
+        return bookingDate.getMonth() === parseInt(selectedMonth) &&
+          bookingDate.getFullYear() === parseInt(selectedYear)
+      } else if (viewMode === 'yearly') {
+        return bookingDate.getFullYear() === parseInt(selectedYear)
+      }
+      return true
+    })
+
+    // 2. Filter by Search & Status (for Table)
+    const finalFiltered = timeFiltered.filter(booking => {
+      const matchesSearch = searchTerm === '' ||
+        (booking.user?.name && booking.user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (booking.room?.name && booking.room.name.toLowerCase().includes(searchTerm.toLowerCase()))
+
+      const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
+
+      return matchesSearch && matchesStatus
+    })
+
+    // 3. Calculate Stats
+    const stats = {
+      totalBookings: timeFiltered.length,
+      approvedBookings: timeFiltered.filter(b => b.status === 'approved').length,
+      pendingBookings: timeFiltered.filter(b => b.status === 'pending').length,
+      rejectedBookings: timeFiltered.filter(b => b.status === 'rejected').length,
+      cancelledBookings: timeFiltered.filter(b => b.status === 'cancelled').length
+    }
+
+    // 4. Prepare Charts Data
+    const charts = {
+      trends: calculateTrends(timeFiltered),
+      status_distribution: calculateStatusDistributionForChart(timeFiltered),
+      peak_hours: calculatePeakHoursForChart(timeFiltered)
+    }
+
+    setProcessedData({
+      stats,
+      charts,
+      popularRooms: calculatePopularRooms(timeFiltered),
+      topUsers: calculateTopUsers(timeFiltered),
+      demandByDay: calculateDemandByDay(timeFiltered),
+      peakHours: calculatePeakHours(timeFiltered),
+      filteredBookings: finalFiltered
+    })
+  }
+
+  const calculateTrends = (bookings) => {
+    if (viewMode === 'daily') {
+      // Hourly trend
+      const hours = Array(24).fill(0).map((_, i) => ({
+        date: `${String(i).padStart(2, '0')}:00`,
+        bookings: 0
+      }))
+
+      bookings.forEach(b => {
+        const h = new Date(b.start_time).getHours()
+        if (hours[h]) hours[h].bookings++
+      })
+      return hours
+    } else if (viewMode === 'monthly') {
+      // Daily trend
+      const daysInMonth = new Date(selectedYear, parseInt(selectedMonth) + 1, 0).getDate()
+      const days = Array(daysInMonth).fill(0).map((_, i) => ({
+        date: String(i + 1),
+        bookings: 0
+      }))
+
+      bookings.forEach(b => {
+        const d = new Date(b.start_time).getDate()
+        if (days[d - 1]) days[d - 1].bookings++
+      })
+      return days
+    } else {
+      // Monthly trend
+      const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'].map(m => ({
+        date: m,
+        bookings: 0
+      }))
+
+      bookings.forEach(b => {
+        const m = new Date(b.start_time).getMonth()
+        if (months[m]) months[m].bookings++
+      })
+      return months
+    }
+  }
+
+  const calculateStatusDistributionForChart = (bookings) => {
+    const counts = { approved: 0, pending: 0, rejected: 0, cancelled: 0 }
+    bookings.forEach(b => counts[b.status] = (counts[b.status] || 0) + 1)
+
+    return [
+      { name: 'อนุมัติ', value: counts.approved || 0 },
+      { name: 'รออนุมัติ', value: counts.pending || 0 },
+      { name: 'ปฏิเสธ', value: counts.rejected || 0 },
+      { name: 'ยกเลิก', value: counts.cancelled || 0 }
+    ]
+  }
+
+  const calculatePeakHoursForChart = (bookings) => {
+    const hourCounts = Array(24).fill(0)
+    bookings.forEach(b => {
+      const h = new Date(b.start_time).getHours()
+      hourCounts[h]++
+    })
+
+    return hourCounts.map((count, hour) => ({
+      hour: `${String(hour).padStart(2, '0')}:00`,
+      count
+    })).filter(h => parseInt(h.hour) >= 6 && parseInt(h.hour) <= 22) // Show 06:00 - 22:00
   }
 
   const calculatePopularRooms = (bookings) => {
@@ -191,8 +348,8 @@ export default function AdminReportsPage() {
       const workbook = XLSX.utils.book_new()
 
       // All bookings sheet (First Sheet)
-      if (filteredBookings.length > 0) {
-        const bookingsData = filteredBookings.map(b => {
+      if (processedData.filteredBookings.length > 0) {
+        const bookingsData = processedData.filteredBookings.map(b => {
           const startDate = new Date(b.start_time)
           const endDate = new Date(b.end_time)
 
@@ -245,18 +402,18 @@ export default function AdminReportsPage() {
 
       // Summary sheet
       const summaryData = [
-        { 'รายการ': 'การจองทั้งหมด', 'จำนวน': reports.totalBookings },
-        { 'รายการ': 'อนุมัติแล้ว', 'จำนวน': reports.approvedBookings },
-        { 'รายการ': 'รออนุมัติ', 'จำนวน': reports.pendingBookings },
-        { 'รายการ': 'ปฏิเสธ', 'จำนวน': reports.rejectedBookings },
-        { 'รายการ': 'ยกเลิก', 'จำนวน': reports.cancelledBookings }
+        { 'รายการ': 'การจองทั้งหมด', 'จำนวน': processedData.stats.totalBookings },
+        { 'รายการ': 'อนุมัติแล้ว', 'จำนวน': processedData.stats.approvedBookings },
+        { 'รายการ': 'รออนุมัติ', 'จำนวน': processedData.stats.pendingBookings },
+        { 'รายการ': 'ปฏิเสธ', 'จำนวน': processedData.stats.rejectedBookings },
+        { 'รายการ': 'ยกเลิก', 'จำนวน': processedData.stats.cancelledBookings }
       ]
       const summarySheet = XLSX.utils.json_to_sheet(summaryData)
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'สรุปรายงาน')
 
       // Popular rooms sheet
-      if (reports.popularRooms.length > 0) {
-        const roomsData = reports.popularRooms.map((r, i) => ({
+      if (processedData.popularRooms.length > 0) {
+        const roomsData = processedData.popularRooms.map((r, i) => ({
           'อันดับ': i + 1,
           'ห้อง': r.name,
           'จำนวนการจอง': r.count
@@ -266,8 +423,8 @@ export default function AdminReportsPage() {
       }
 
       // Top users sheet
-      if (reports.topUsers.length > 0) {
-        const usersData = reports.topUsers.map((u, i) => ({
+      if (processedData.topUsers.length > 0) {
+        const usersData = processedData.topUsers.map((u, i) => ({
           'อันดับ': i + 1,
           'ผู้ใช้': u.name,
           'จำนวนการจอง': u.count
@@ -276,9 +433,7 @@ export default function AdminReportsPage() {
         XLSX.utils.book_append_sheet(workbook, usersSheet, 'ผู้ใช้งานบ่อย')
       }
 
-
-
-      XLSX.writeFile(workbook, `รายงานการจอง_${new Date().toISOString().split('T')[0]}.xlsx`)
+      XLSX.writeFile(workbook, `รายงานการจอง_${viewMode}_${new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {
       console.error('Error exporting:', error)
       alert('เกิดข้อผิดพลาดในการส่งออกไฟล์')
@@ -307,15 +462,7 @@ export default function AdminReportsPage() {
     return badges[status] || 'bg-gray-50 text-gray-700 border-gray-100'
   }
 
-  const filteredBookings = reports.allBookings.filter(booking => {
-    const matchesSearch = searchTerm === '' ||
-      booking.user?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.room?.name.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
-
-    return matchesSearch && matchesStatus
-  })
 
   if (loading) {
     return (
@@ -337,30 +484,90 @@ export default function AdminReportsPage() {
         title="รายงานการจองห้อง"
         subtitle="รายงานและการวิเคราะห์ข้อมูลการจองห้องแบบครบถ้วน"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row items-end md:items-center gap-3">
+            {/* View Mode Selector */}
+            <div className="bg-gray-100 p-1 rounded-xl flex items-center">
+              <button
+                onClick={() => setViewMode('daily')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${viewMode === 'daily' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                รายวัน
+              </button>
+              <button
+                onClick={() => setViewMode('monthly')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${viewMode === 'monthly' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                รายเดือน
+              </button>
+              <button
+                onClick={() => setViewMode('yearly')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${viewMode === 'yearly' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                รายปี
+              </button>
+            </div>
+
+            {/* Date Pickers */}
+            <div className="flex items-center gap-2">
+              {viewMode === 'daily' && (
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                />
+              )}
+              {viewMode === 'monthly' && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  >
+                    {['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'].map((m, i) => (
+                      <option key={i} value={i}>{m}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                      <option key={y} value={y}>{y + 543}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {viewMode === 'yearly' && (
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                    <option key={y} value={y}>{y + 543}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div className="relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="ค้นหา..."
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm w-64"
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm w-40"
               />
               <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm bg-white"
-            >
-              <option value="all">ทุกสถานะ</option>
-              <option value="approved">อนุมัติแล้ว</option>
-              <option value="pending">รออนุมัติ</option>
-              <option value="rejected">ปฏิเสธ</option>
-              <option value="cancelled">ยกเลิก</option>
-            </select>
+
             <AdminButton
               onClick={exportToExcel}
               disabled={exportLoading}
@@ -371,7 +578,7 @@ export default function AdminReportsPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               }
             >
-              {exportLoading ? 'กำลังส่งออก...' : 'Export Excel'}
+              Export
             </AdminButton>
           </div>
         }
@@ -379,20 +586,20 @@ export default function AdminReportsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <StatCard label="การจองทั้งหมด" value={reports.totalBookings} icon="📅" color="blue" description="รายการทั้งหมดในระบบ" />
-        <StatCard label="อนุมัติแล้ว" value={reports.approvedBookings} icon="✅" color="green" description="การจองที่ยืนยันแล้ว" />
-        <StatCard label="รออนุมัติ" value={reports.pendingBookings} icon="⏳" color="orange" description="รอการตรวจสอบ" />
-        <StatCard label="ปฏิเสธ" value={reports.rejectedBookings} icon="❌" color="red" description="ไม่อนุมัติการจอง" />
-        <StatCard label="ยกเลิก" value={reports.cancelledBookings} icon="🚫" color="gray" description="ผู้ใช้ยกเลิก" />
+        <StatCard label="การจองทั้งหมด" value={processedData.stats.totalBookings} icon="📅" color="blue" description="รายการทั้งหมดในช่วงเวลานี้" />
+        <StatCard label="อนุมัติแล้ว" value={processedData.stats.approvedBookings} icon="✅" color="green" description="การจองที่ยืนยันแล้ว" />
+        <StatCard label="รออนุมัติ" value={processedData.stats.pendingBookings} icon="⏳" color="orange" description="รอการตรวจสอบ" />
+        <StatCard label="ปฏิเสธ" value={processedData.stats.rejectedBookings} icon="❌" color="red" description="ไม่อนุมัติการจอง" />
+        <StatCard label="ยกเลิก" value={processedData.stats.cancelledBookings} icon="🚫" color="gray" description="ผู้ใช้ยกเลิก" />
       </div>
 
       {/* Charts Section */}
-      <DashboardCharts token={token} />
+      <DashboardCharts token={token} externalData={processedData.charts} />
 
       {/* Bookings Table */}
-      <AdminCard title={`รายการจองทั้งหมด (${filteredBookings.length})`} icon="📋" noPadding className="overflow-hidden">
+      <AdminCard title={`รายการจอง (${processedData.filteredBookings.length})`} icon="📋" noPadding className="overflow-hidden">
         <div className="overflow-x-auto">
-          {filteredBookings.length === 0 ? (
+          {processedData.filteredBookings.length === 0 ? (
             <div className="p-12 text-center text-gray-400">
               ไม่พบข้อมูลการจอง
             </div>
@@ -408,7 +615,7 @@ export default function AdminReportsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {filteredBookings.slice(0, 50).map((booking) => (
+                {processedData.filteredBookings.slice(0, 50).map((booking) => (
                   <tr key={booking.id} className="hover:bg-blue-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">
                       <div className="flex items-center gap-3">
@@ -457,9 +664,9 @@ export default function AdminReportsPage() {
             </table>
           )}
         </div>
-        {filteredBookings.length > 50 && (
+        {processedData.filteredBookings.length > 50 && (
           <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500 bg-gray-50/50">
-            แสดง 50 รายการแรก จากทั้งหมด {filteredBookings.length} รายการ
+            แสดง 50 รายการแรก จากทั้งหมด {processedData.filteredBookings.length} รายการ
           </div>
         )}
       </AdminCard>
@@ -468,9 +675,9 @@ export default function AdminReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Popular Rooms */}
         <AdminCard title="ห้องที่ได้รับความนิยมสูงสุด" icon="🏆">
-          {reports.popularRooms.length > 0 ? (
+          {processedData.popularRooms.length > 0 ? (
             <div className="space-y-3">
-              {reports.popularRooms.map((room, index) => (
+              {processedData.popularRooms.map((room, index) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all">
                   <div className="flex items-center">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold mr-4 ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
@@ -502,9 +709,9 @@ export default function AdminReportsPage() {
 
         {/* Top Users */}
         <AdminCard title="ผู้ใช้งานที่จองบ่อยที่สุด" icon="👥">
-          {reports.topUsers.length > 0 ? (
+          {processedData.topUsers.length > 0 ? (
             <div className="space-y-3">
-              {reports.topUsers.map((user, index) => (
+              {processedData.topUsers.map((user, index) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all">
                   <div className="flex items-center">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold mr-4 ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
@@ -537,7 +744,7 @@ export default function AdminReportsPage() {
         {/* Peak Hours Chart */}
         <AdminCard title="ช่วงเวลาที่มีการจองมากที่สุด" icon="⏰">
           <div className="space-y-3">
-            {reports.peakHours.map((hour, index) => (
+            {processedData.peakHours.map((hour, index) => (
               <div key={index} className="flex items-center group">
                 <div className="w-16 text-sm font-bold text-gray-500">{hour.label}</div>
                 <div className="flex-1 mx-3">
@@ -559,7 +766,7 @@ export default function AdminReportsPage() {
         {/* Demand by Day */}
         <AdminCard title="ความต้องการตามวันในสัปดาห์" icon="📅">
           <div className="space-y-4">
-            {reports.demandByDay.map((day, index) => (
+            {processedData.demandByDay.map((day, index) => (
               <div key={index}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-gray-700">{day.day}</span>
@@ -576,6 +783,6 @@ export default function AdminReportsPage() {
           </div>
         </AdminCard>
       </div>
-    </div>
+    </div >
   )
 }

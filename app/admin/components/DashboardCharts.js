@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import { API_URL } from '../../lib/api'
 
-export default function DashboardCharts({ token }) {
+export default function DashboardCharts({ token, externalData }) {
     const [data, setData] = useState({
         trends: [],
         status_distribution: [],
@@ -16,10 +16,13 @@ export default function DashboardCharts({ token }) {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        if (token) {
+        if (externalData) {
+            setData(externalData)
+            setLoading(false)
+        } else if (token) {
             fetchChartsData()
         }
-    }, [token])
+    }, [token, externalData])
 
     const fetchChartsData = async () => {
         try {

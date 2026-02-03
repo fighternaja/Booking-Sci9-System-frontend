@@ -36,7 +36,7 @@ export default function AdminEquipmentPage() {
     const fetchEquipment = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`${API_URL}/api/equipment`, {
+            const response = await fetch(`${API_URL}/api/admin/equipment`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
@@ -60,8 +60,8 @@ export default function AdminEquipmentPage() {
         e.preventDefault()
 
         const url = editingEquipment
-            ? `${API_URL}/api/equipment/${editingEquipment.id}`
-            : `${API_URL}/api/equipment`
+            ? `${API_URL}/api/admin/equipment/${editingEquipment.id}`
+            : `${API_URL}/api/admin/equipment`
 
         const method = editingEquipment ? 'PUT' : 'POST'
 
@@ -112,7 +112,7 @@ export default function AdminEquipmentPage() {
         if (!result.isConfirmed) return
 
         try {
-            const response = await fetch(`${API_URL}/api/equipment/${id}`, {
+            const response = await fetch(`${API_URL}/api/admin/equipment/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,

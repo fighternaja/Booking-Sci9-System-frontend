@@ -497,7 +497,21 @@ export default function MyBookingsPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6 mt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-4 gap-x-6 mt-4">
+                          {/* Booking Created Date */}
+                          <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50/50 border border-gray-100/50">
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-800 uppercase tracking-widest">วันที่จอง</p>
+                              <p className="text-sm font-semibold text-gray-900 mt-0.5">{formatDateTimeToThai(booking.created_at)}</p>
+                            </div>
+                          </div>
+
+                          {/* Start Time */}
                           <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/50 border border-blue-100/50">
                             <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -505,9 +519,21 @@ export default function MyBookingsPage() {
                               </svg>
                             </div>
                             <div>
-                              <p className="text-[10px] font-bold text-blue-800 uppercase tracking-widest">เวลาที่จอง</p>
+                              <p className="text-[10px] font-bold text-blue-800 uppercase tracking-widest">เริ่มต้น</p>
                               <p className="text-sm font-semibold text-gray-900 mt-0.5">{formatDateTimeToThai(booking.start_time)}</p>
-                              <p className="text-xs text-gray-500">ถึง {formatDateTimeToThai(booking.end_time)}</p>
+                            </div>
+                          </div>
+
+                          {/* End Time */}
+                          <div className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100/50">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-indigo-800 uppercase tracking-widest">สิ้นสุด</p>
+                              <p className="text-sm font-semibold text-gray-900 mt-0.5">{formatDateTimeToThai(booking.end_time)}</p>
                             </div>
                           </div>
 

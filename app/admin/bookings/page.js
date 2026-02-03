@@ -311,7 +311,7 @@ export default function AdminBookingsPage() {
             <AdminCard key={booking.id} className="group hover:shadow-md transition-all duration-300">
               <div className="flex flex-col lg:flex-row gap-6">
 
-                {/* Time & Room (Left) */}
+                {/* Room Image (Left) */}
                 <div className="lg:w-1/4 flex flex-col justify-center border-b lg:border-b-0 lg:border-r border-gray-100 pb-4 lg:pb-0 lg:pr-6">
                   {booking.room?.image && (
                     <div className="mb-3 h-32 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
@@ -323,16 +323,10 @@ export default function AdminBookingsPage() {
                     </div>
                   )}
                   <div className="text-sm font-bold text-blue-600 mb-1">{booking.room?.name}</div>
-                  <div className="text-xl font-bold text-gray-900 leading-tight">
-                    {formatDateTimeToThai(booking.start_time).split(' ')[0]}
-                  </div>
-                  <div className="text-gray-500 text-sm mt-1">
-                    {formatDateTimeToThai(booking.start_time).split(' ').slice(1).join(' ')} - {formatDateTimeToThai(booking.end_time).split(' ').slice(1).join(' ')}
-                  </div>
                 </div>
 
                 {/* Info (Middle) */}
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
                       booking.status === 'approved' ? 'bg-green-50 text-green-700 border-green-100' :
@@ -346,6 +340,25 @@ export default function AdminBookingsPage() {
                     <h3 className="font-bold text-gray-900">{booking.purpose || 'ไม่มีหัวข้อการประชุม'}</h3>
                   </div>
 
+                  {/* Date Information Grid */}
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    {/* Booking Created Date */}
+                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                      <p className="text-gray-500 font-semibold mb-1">วันที่จอง</p>
+                      <p className="text-gray-900 font-bold">{formatDateTimeToThai(booking.created_at)}</p>
+                    </div>
+                    {/* Start Date */}
+                    <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
+                      <p className="text-blue-600 font-semibold mb-1">วันที่เริ่มต้น</p>
+                      <p className="text-gray-900 font-bold">{formatDateTimeToThai(booking.start_time)}</p>
+                    </div>
+                    {/* End Date */}
+                    <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-100">
+                      <p className="text-indigo-600 font-semibold mb-1">วันที่สิ้นสุด</p>
+                      <p className="text-gray-900 font-bold">{formatDateTimeToThai(booking.end_time)}</p>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs">👤</span>
@@ -357,14 +370,18 @@ export default function AdminBookingsPage() {
                     </div>
                   </div>
 
-                  {booking.equipment && booking.equipment.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {booking.equipment.map(eq => (
-                        <span key={eq.id} className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600">
-                          + {eq.name}
-                        </span>
-                      ))}
-                    </div>
+                  {/* Equipment List */}
+                  {booking.equipment && booking.equipment.length > 0 && (<div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                      อุปกรณ์:
+                    </span>
+                    {booking.equipment.map(eq => (
+                      <span key={eq.id} className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                        {eq.name} {eq.pivot?.quantity && <span className="ml-1 text-purple-500">x{eq.pivot.quantity}</span>}
+                      </span>
+                    ))}
+                  </div>
                   )}
                 </div>
 

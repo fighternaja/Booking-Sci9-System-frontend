@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -1123,7 +1123,7 @@ export default function AdminSchedulePage() {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             <div className="font-medium">{item.purpose}</div>
-                            <div className="text-xs text-gray-500">{item.user_name} (Sec: {item.section !== 'ไม่ระบุ' ? item.section : '-'})</div>
+                            <div className="text-xs text-gray-500">Sec: {item.section !== 'ไม่ระบุ' ? item.section : '-'}</div>
                           </td>
                         </tr>
                       ))}

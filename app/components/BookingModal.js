@@ -12,7 +12,8 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     start_time: '',
     end_time: '',
     purpose: '',
-    notes: ''
+    notes: '',
+    equipment_notes: ''
   })
   const [baseDate, setBaseDate] = useState('') // YYYY-MM-DD from selected day
   const [loading, setLoading] = useState(false)
@@ -22,7 +23,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
   const [showCancelForm, setShowCancelForm] = useState(false)
   const [cancellationReason, setCancellationReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
-  const [selectedEquipment, setSelectedEquipment] = useState([])
+  const [selectedEquipment, setSelectedEquipment] = useState({})
   const [availableEquipment, setAvailableEquipment] = useState([])
   const [loadingEquipment, setLoadingEquipment] = useState(false)
 
@@ -55,7 +56,8 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         start_time: '',
         end_time: '',
         purpose: '',
-        notes: ''
+        notes: '',
+        equipment_notes: ''
       })
       setError('')
       setAvailability(null)
@@ -72,7 +74,7 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
       setAttendeeEmail('')
       setAttendeeName('')
       setAttendeeName('')
-      setSelectedEquipment([])
+      setSelectedEquipment({})
     } else {
       fetchEquipment()
     }
@@ -241,12 +243,15 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
     }
   }
 
-  const handleEquipmentToggle = (equipmentId) => {
+  const handleEquipmentQuantityChange = (equipmentId, quantity) => {
+    const qty = parseInt(quantity) || 0
     setSelectedEquipment(prev => {
-      if (prev.includes(equipmentId)) {
-        return prev.filter(id => id !== equipmentId)
+      if (qty > 0) {
+        return { ...prev, [equipmentId]: qty }
       } else {
-        return [...prev, equipmentId]
+        const newState = { ...prev }
+        delete newState[equipmentId]
+        return newState
       }
     })
   }
@@ -468,7 +473,8 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
           start_time: fullStartTime,
           end_time: fullEndTime,
           purpose: formData.purpose,
-          notes: formData.notes
+          notes: formData.notes,
+          equipment_notes: formData.equipment_notes
         })
       })
 
@@ -626,29 +632,6 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
         }, 100)
       } else {
         setError(data.message || 'เกิดข้อผิดพลาดในการจองห้อง')
-      }
-
-      // Add equipment if any
-      if (selectedEquipment.length > 0 && data.success) {
-        const bookingId = data.data.id
-        for (const equipmentId of selectedEquipment) {
-          try {
-            await fetch(`${API_URL}/api/bookings/${bookingId}/equipment`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              body: JSON.stringify({
-                equipment_id: equipmentId,
-                quantity: 1
-              })
-            })
-          } catch (err) {
-            console.error('Error adding equipment:', err)
-          }
-        }
       }
 
     } catch (error) {
@@ -1040,52 +1023,6 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
                 />
               </div>
 
-              {/* Equipment Selection */}
-              {room?.amenities?.equipment && room.amenities.equipment.length > 0 && (
-                <div className="space-y-2">
-                  <label className="flex items-center text-sm font-semibold text-gray-900">
-                    <svg className="w-4 h-4 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                    🛠️ อุปกรณ์ที่ต้องการใช้
-                  </label>
-                  <p className="text-xs text-gray-500 ml-6">เลือกอุปกรณ์ที่ต้องการใช้งาน (ไม่บังคับ)</p>
-                  <div className="grid grid-cols-2 gap-2 ml-6">
-                    {room.amenities.equipment.map((eq, index) => {
-                      const equipmentId = `${eq.name}-${index}`
-                      const isSelected = selectedEquipment.some(item => item.name === eq.name)
-
-                      return (
-                        <label
-                          key={index}
-                          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${isSelected
-                            ? 'bg-white/70 border-gray-400 text-gray-900'
-                            : 'bg-white/50 border-gray-200 text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedEquipment([...selectedEquipment, { name: eq.name, quantity: 1 }])
-                              } else {
-                                setSelectedEquipment(selectedEquipment.filter(item => item.name !== eq.name))
-                              }
-                            }}
-                            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                          />
-                          <div className="flex-1">
-                            <span className="text-sm font-medium">{eq.name}</span>
-                            {eq.quantity && <span className="text-xs text-gray-500 ml-1">({eq.quantity} ชิ้น)</span>}
-                          </div>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
                 <label htmlFor="notes" className="flex items-center text-sm font-semibold text-gray-900">
                   <svg className="w-4 h-4 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1106,41 +1043,22 @@ export default function BookingModal({ isOpen, onClose, selectedDate, room, onBo
               </div>
 
               {/* Equipment Section */}
-              <div className="space-y-4 p-5 bg-white/50 backdrop-blur-sm rounded-xl border-2 border-gray-200">
-                <div className="flex items-center mb-3">
-                  <svg className="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="space-y-2">
+                <label htmlFor="equipment_notes" className="flex items-center text-sm font-semibold text-gray-900">
+                  <svg className="w-4 h-4 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
-                  <label className="text-sm font-semibold text-gray-900">อุปกรณ์ที่ต้องการเบิก (Equipment)</label>
-                </div>
-
-                {loadingEquipment ? (
-                  <div className="text-sm text-gray-500 py-2 text-center">กำลังโหลดข้อมูลอุปกรณ์...</div>
-                ) : availableEquipment.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {availableEquipment.map((item) => (
-                      <label key={item.id} className={`flex items-start p-3 rounded-lg border cursor-pointer transition-all ${selectedEquipment.includes(item.id)
-                          ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-300'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
-                        }`}>
-                        <input
-                          type="checkbox"
-                          checked={selectedEquipment.includes(item.id)}
-                          onChange={() => handleEquipmentToggle(item.id)}
-                          className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                        />
-                        <div className="ml-3">
-                          <span className="block text-sm font-medium text-gray-900">{item.name}</span>
-                          {item.description && (
-                            <span className="block text-xs text-gray-500 mt-0.5">{item.description}</span>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500 py-4 border border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">ไม่มีอุปกรณ์ให้เบิก</div>
-                )}
+                  เพิ่มอุปกรณ์ (ไม่บังคับ)
+                </label>
+                <textarea
+                  id="equipment_notes"
+                  name="equipment_notes"
+                  rows={3}
+                  value={formData.equipment_notes || ''}
+                  onChange={handleChange}
+                  placeholder="ระบุรายการอุปกรณ์ที่ต้องการ เช่น โปรเจคเตอร์ 1 เครื่อง, ไมโครโฟน 2 ตัว"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white hover:border-gray-300 resize-none"
+                />
               </div>
 
               {/* Recurring Booking Section */}

@@ -10,6 +10,10 @@ import Swal from 'sweetalert2'
 import RecurringBookingsList from '../components/RecurringBookingsList'
 import { API_URL, getStorageUrl } from '../lib/api'
 
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic'
+
+
 // Separate component for search params to satisfy Suspense requirement
 function MyBookingsContent() {
   const [bookings, setBookings] = useState([])

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 export default function Footer() {
   return (
     <footer className="bg-gray-50 pt-16 pb-12 border-t border-gray-200">
@@ -24,13 +25,13 @@ export default function Footer() {
             <h4 className="text-lg font-bold text-gray-900 mb-6">เมนูลัด</h4>
             <ul className="space-y-4">
               <li>
-                <a href="/" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">หน้าหลัก</a>
+                <Link href="/" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">หน้าหลัก</Link>
               </li>
               <li>
-                <a href="/rooms" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">ห้องทั้งหมด</a>
+                <Link href="/rooms" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">ห้องทั้งหมด</Link>
               </li>
               <li>
-                <a href="/about" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">เกี่ยวกับอาคาร</a>
+                <Link href="/about" className="text-gray-600 hover:text-blue-600 transition-colors inline-block transform hover:translate-x-1">เกี่ยวกับอาคาร</Link>
               </li>
             </ul>
           </div>

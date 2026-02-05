@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [bookingLoading, setBookingLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [error, setError] = useState(null)
   const { token, logout, user, loading: authLoading } = useAuth()
   const router = useRouter()
 
@@ -50,6 +51,8 @@ export default function AdminDashboard() {
       return
     }
 
+    setError(null) // Reset error state
+
     try {
       // Fetch both APIs in parallel for better performance
       const [dashboardResponse, bookingsResponse] = await Promise.all([
@@ -68,6 +71,24 @@ export default function AdminDashboard() {
           }
         })
       ])
+
+      // Handle authentication errors
+      if (dashboardResponse.status === 401 || bookingsResponse.status === 401) {
+        logout()
+        router.push('/login')
+        return
+      }
+
+      // Handle server errors
+      if (dashboardResponse.status === 500) {
+        setError('ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้ กรุณาตรวจสอบว่า MariaDB/MySQL ทำงานอยู่และตั้งค่าการเชื่อมต่อถูกต้อง')
+        console.error('Database connection error: HTTP 500')
+        return
+      }
+
+      if (bookingsResponse.status === 500) {
+        console.error('Bookings API error: HTTP 500')
+      }
 
       // Handle dashboard response
       if (dashboardResponse.ok) {
@@ -99,15 +120,12 @@ export default function AdminDashboard() {
             })
           }
         }
-      }
-
-      if (dashboardResponse.status === 401 || bookingsResponse.status === 401) {
-        logout()
-        router.push('/login')
-        return
+      } else if (!error) {
+        setError(`เกิดข้อผิดพลาดในการโหลดข้อมูล (HTTP ${dashboardResponse.status})`)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง')
     } finally {
       setLoading(false)
       setBookingLoading(false)
@@ -221,6 +239,27 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-bold text-red-800">เกิดข้อผิดพลาด</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+              <button
+                onClick={fetchAllData}
+                className="mt-3 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+              >
+                ลองใหม่อีกครั้ง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <AdminHeader
         title="ภาพรวมระบบ"

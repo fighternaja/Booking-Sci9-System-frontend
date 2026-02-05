@@ -35,8 +35,8 @@ export function AuthProvider({ children }) {
 
       // Check if response is ok ตรวจสอบการตอบสนองจาก server
       if (!response.ok) {
-        // ถ้าเป็น 401 แสดงว่าอีเมลหรือรหัสผ่านไม่ถูกต้อง
-        if (response.status === 401) {
+        // ถ้าเป็น 401 หรือ 500 แสดงว่าอีเมลหรือรหัสผ่านไม่ถูกต้อง
+        if (response.status === 401 || response.status === 500) {
           return { success: false, message: 'รหัสผ่านไม่ถูกต้อง' }
         }
         return { success: false, message: `HTTP Error: ${response.status}` }

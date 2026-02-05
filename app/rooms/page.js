@@ -14,6 +14,7 @@ export default function RoomsPage() {
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [roomBookings, setRoomBookings] = useState({}) // เก็บข้อมูลการจองของแต่ละห้อง
+  const [error, setError] = useState(null)
   const { user } = useAuth()
 
   useEffect(() => {
@@ -87,12 +88,21 @@ export default function RoomsPage() {
   }
 
   const fetchRooms = async () => {
+    setError(null) // Reset error state
+
     try {
       const response = await fetch(`${API_URL}/api/rooms`, {
         headers: {
           'Accept': 'application/json',
         }
       })
+
+      // Handle server errors
+      if (response.status === 500) {
+        setError('ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้ กรุณาตรวจสอบว่า MariaDB/MySQL ทำงานอยู่และตั้งค่าการเชื่อมต่อถูกต้อง')
+        console.error('Database connection error: HTTP 500')
+        return
+      }
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -103,6 +113,7 @@ export default function RoomsPage() {
         } catch (e) {
           errorMessage = errorText || errorMessage
         }
+        setError(`เกิดข้อผิดพลาดในการโหลดข้อมูล (HTTP ${response.status})`)
         console.error('Error fetching rooms:', errorMessage)
         return
       }
@@ -110,6 +121,7 @@ export default function RoomsPage() {
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text()
+        setError('เกิดข้อผิดพลาด: ได้รับข้อมูลที่ไม่ถูกต้องจากเซิร์ฟเวอร์')
         console.error('Non-JSON response:', text)
         return
       }
@@ -119,9 +131,11 @@ export default function RoomsPage() {
       if (data.success) {
         setRooms(data.data || [])
       } else {
+        setError(data.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล')
         console.error('API returned unsuccessful response:', data.message || 'Unknown error')
       }
     } catch (error) {
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง')
       console.error('Error fetching rooms:', error.message || error)
     } finally {
       setLoading(false)
@@ -226,6 +240,27 @@ export default function RoomsPage() {
             </h1>
             <p className="text-gray-600 text-lg">เลือกห้องที่เหมาะกับความต้องการของคุณ</p>
           </div>
+
+          {/* Error Banner */}
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-bold text-red-800">เกิดข้อผิดพลาด</h3>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                  <button
+                    onClick={fetchRooms}
+                    className="mt-3 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    ลองใหม่อีกครั้ง
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Search and Filter Bar */}
           <div className="mt-6 bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border-2 border-gray-200 p-6">

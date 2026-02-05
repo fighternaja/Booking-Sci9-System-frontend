@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import RescheduleModal from '../components/RescheduleModal'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDateTimeToThai } from '../utils/dateUtils'
@@ -10,7 +10,8 @@ import Swal from 'sweetalert2'
 import RecurringBookingsList from '../components/RecurringBookingsList'
 import { API_URL, getStorageUrl } from '../lib/api'
 
-export default function MyBookingsPage() {
+// Separate component for search params to satisfy Suspense requirement
+function MyBookingsContent() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -834,5 +835,21 @@ export default function MyBookingsPage() {
         />
       )}
     </div>
+  )
+}
+
+// Export with Suspense boundary
+export default function MyBookingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500 text-sm font-medium animate-pulse">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    }>
+      <MyBookingsContent />
+    </Suspense>
   )
 }
